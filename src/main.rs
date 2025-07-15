@@ -1,19 +1,16 @@
-use uuid::uuid;
 use crate::ColumnIdentifier::*;
 /****************************************************\
 |****************    GLOBAL TYPES    ****************|
 \****************************************************/
 // Stone colors
-#[derive(Copy)]
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 enum Color {
     WHITE,
     BLACK,
 }
 
 // The state that a given intersection can be in
-#[derive(Copy)]
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 enum State {
     OCCUPIED(Color),
     EMPTY,
@@ -67,7 +64,7 @@ enum ColumnIdentifier {
 
 struct Intersection {
     column: ColumnIdentifier,
-    row: u8
+    row: u8,
 }
 
 /*****************************************************\
@@ -90,7 +87,7 @@ impl Board {
 
     // Creates a Vec<State> representing an empty Go board
     fn empty_board(size: u8) -> Vec<State> {
-        let mut position: Vec<State> = vec!();
+        let mut position: Vec<State> = vec![];
         for row in 0..size + 2 {
             for col in 0..size + 2 {
                 if (row == 0 || row == size + 1 || col == 0 || col == size + 1) {
@@ -129,7 +126,7 @@ impl BoardSize {
 impl ColumnIdentifier {
     // Converts numeric column indecies to their respective ColumnIdentifier
     // TODO: seems messy, likely cleaner way to do this
-    fn from_u16(column_index: u16) -> Option<ColumnIdentifier>{
+    fn from_u16(column_index: u16) -> Option<ColumnIdentifier> {
         match column_index {
             0 => Some(A),
             1 => Some(B),
@@ -153,7 +150,7 @@ impl ColumnIdentifier {
             _ => None,
         }
     }
-    
+
     // Converts a ColumnIdentifier to its respective u16 column index
     fn to_u16(self) -> u16 {
         self as u16
@@ -162,9 +159,9 @@ impl ColumnIdentifier {
 
 impl Intersection {
     fn to_position_index(self, size: BoardSize) -> usize {
-        let numericSize = size.to_u8();
-        let rowIndex = ((numericSize - self.row - 1) * numericSize) as u16;
-        (rowIndex + self.column.to_u16()) as usize
+        let numeric_size = size.to_u8();
+        let row_index = ((numeric_size - self.row - 1) * numeric_size) as u16;
+        (row_index + self.column.to_u16()) as usize
     }
 }
 
@@ -177,7 +174,8 @@ impl Board {
         match mov {
             Move::PASS => self,
             Move::MOVE(intersection, color) => {
-                let position_index = intersection.to_position_index(BoardSize::from_u8(self.size).unwrap());
+                let position_index =
+                    intersection.to_position_index(BoardSize::from_u8(self.size).unwrap());
                 self.position[position_index] = State::OCCUPIED(color);
                 self
             }
