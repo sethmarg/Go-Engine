@@ -1,16 +1,24 @@
+use std::collections::HashSet;
 use crate::ColumnIdentifier::*;
+use crate::Move::*;
+use std::fmt;
+use std::fmt::Formatter;
+use std::io::ErrorKind::Interrupted;
+use std::num::IntErrorKind;
+use std::ptr::null;
+
 /****************************************************\
 |****************    GLOBAL TYPES    ****************|
 \****************************************************/
 // Stone colors
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 enum Color {
     WHITE,
     BLACK,
 }
 
 // The state that a given intersection can be in
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 enum State {
     OCCUPIED(Color),
     EMPTY,
@@ -35,11 +43,12 @@ struct Board {
     size: u8,
     position: Vec<State>,
     side: Color,
-    ko: Move,
+    ko: Option<Intersection>,
     komi: f32,
     last_move: Move,
 }
 
+#[derive(PartialEq, Debug, Eq, Hash)]
 enum ColumnIdentifier {
     A = 0,
     B = 1,
@@ -62,6 +71,8 @@ enum ColumnIdentifier {
     T = 18,
 }
 
+#[derive(PartialEq, Debug)]
+#[derive(Eq, Hash)]
 struct Intersection {
     column: ColumnIdentifier,
     row: u8,
@@ -79,7 +90,7 @@ impl Board {
             size: numeric_size, // remember to account for OFFBOARD
             position: Board::empty_board(numeric_size),
             side: Color::BLACK,
-            ko: Move::PASS,
+            ko: Option::None,
             komi: 6.5,
             last_move: Move::PASS,
         }
@@ -126,7 +137,7 @@ impl BoardSize {
 impl ColumnIdentifier {
     // Converts numeric column indecies to their respective ColumnIdentifier
     // TODO: seems messy, likely cleaner way to do this
-    fn from_u16(column_index: u16) -> Option<ColumnIdentifier> {
+    fn from_u8(column_index: u8) -> Option<ColumnIdentifier> {
         match column_index {
             0 => Some(A),
             1 => Some(B),
@@ -152,16 +163,99 @@ impl ColumnIdentifier {
     }
 
     // Converts a ColumnIdentifier to its respective u16 column index
-    fn to_u16(self) -> u16 {
-        self as u16
+    fn to_u8(self) -> u8 {
+        self as u8
+    }
+}
+
+impl fmt::Display for ColumnIdentifier {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                A => "A",
+                B => "B",
+                C => "C",
+                D => "D",
+                E => "E",
+                F => "F",
+                G => "G",
+                H => "H",
+                J => "J",
+                K => "K",
+                L => "L",
+                M => "M",
+                N => "N",
+                O => "O",
+                P => "P",
+                Q => "Q",
+                R => "R",
+                S => "S",
+                T => "T",
+            }
+        )
     }
 }
 
 impl Intersection {
-    fn to_position_index(self, size: BoardSize) -> usize {
-        let numeric_size = size.to_u8();
-        let row_index = ((numeric_size - self.row - 1) * numeric_size) as u16;
-        (row_index + self.column.to_u16()) as usize
+    // Converts this Intersection into its index in a position vector on the given BoardSize Board
+    // TODO: TESTS!!!
+    fn to_position_index(self, size: BoardSize) -> u16 {
+        let position_length = size.to_u8() as u16 + 2;
+        let column_index = self.column.to_u8() as u16;
+        let row_index = (position_length - (self.row as u16) - 1) * position_length;
+        column_index + row_index + 1
+    }
+
+    fn from_position_index(position_index: u16, size: BoardSize) -> Option<Intersection> {
+        let position_length = size.to_u8() as u16 + 2;
+
+        if (position_index >= position_index * position_index) {
+            return Option::None;
+        }
+
+        let col = position_index % position_length;
+        let row = position_index / position_length;
+
+        if (col == 0 || col == position_length - 1 || row == 0 || row == position_length - 1) {
+            return Option::None;
+        }
+
+        Some(Intersection {
+            column: ColumnIdentifier::from_u8(col as u8 - 1).unwrap(),
+            row: (position_length - row) as u8,
+        })
+    }
+}
+
+/*****************************************************\
+|****************      RENDERING      ****************|
+\*****************************************************/
+
+impl Board {
+    // Returns a String representing a rendering of the current Board
+    fn render(&self) {
+        let position_length = (self.size + 2) as usize;
+        for row in 0..self.size as usize {
+            print!("{} ", self.size as usize - row);
+            for col in 0..self.size as usize {
+                let intersection = (row + 1) * position_length + col + 1;
+                match (self.position[intersection]) {
+                    State::OCCUPIED(Color::BLACK) => print!("X "),
+                    State::OCCUPIED(Color::WHITE) => print!("0 "),
+                    State::EMPTY => print!(". "),
+                    State::OFFBOARD => print!(""),
+                }
+            }
+            println!()
+        }
+
+        print!(" ");
+        for col in 0..self.size {
+            print!(" {}", ColumnIdentifier::from_u8(col).unwrap());
+        }
+        println!();
     }
 }
 
@@ -170,19 +264,100 @@ impl Intersection {
 \****************************************************/
 
 impl Board {
-    fn play(mut self, mov: Move) -> Board {
+    fn play(&mut self, mov: Move) -> bool {
         match mov {
-            Move::PASS => self,
-            Move::MOVE(intersection, color) => {
-                let position_index =
-                    intersection.to_position_index(BoardSize::from_u8(self.size).unwrap());
-                self.position[position_index] = State::OCCUPIED(color);
-                self
+            PASS => true,
+            MOVE(intersection, color) => self.playIntersection(intersection, color),
+        }
+    }
+
+    fn count(&self, position_index: usize, color: Color) -> (HashSet<Intersection>, HashSet<Intersection>) {
+        let mut group: HashSet<Intersection> = HashSet::new();
+        let mut liberties: HashSet<Intersection> = HashSet::new();
+
+        self.count_help(position_index, color, &mut group, &mut liberties);
+
+        (group, liberties)
+    }
+
+    fn count_help(
+        &self,
+        position_index: usize,
+        color: Color,
+        group: &mut HashSet<Intersection>,
+        liberties: &mut HashSet<Intersection>,
+    ) {
+        let inrsc_state = self.position[position_index];
+        let inrsc = Intersection::from_position_index(
+            position_index as u16,
+            BoardSize::from_u8(self.size).unwrap(),
+        )
+        .unwrap();
+        match inrsc_state {
+            State::OCCUPIED(inrsc_color) => {
+                if inrsc_color == color {
+                    if !group.contains(&inrsc) {
+                        group.insert(inrsc);
+                        self.count_help(position_index + 1, color, group, liberties);
+                        self.count_help(position_index - 1, color, group, liberties);
+                        self.count_help(
+                            position_index + self.size as usize + 2,
+                            color,
+                            group,
+                            liberties,
+                        );
+                        self.count_help(
+                            position_index - self.size as usize - 2,
+                            color,
+                            group,
+                            liberties,
+                        );
+                    }
+                }
+            }
+            State::EMPTY => {
+                if !liberties.contains(&inrsc) {
+                    liberties.insert(inrsc);
+                }
+            }
+            State::OFFBOARD => {} // do nothing
+        }
+    }
+
+    fn playIntersection(&mut self, inrsc: Intersection, color: Color) -> bool {
+        if let Some(ko) = self.ko.as_ref() {
+            if ko == &inrsc {
+                return false;
             }
         }
+
+        let position_index =
+            inrsc.to_position_index(BoardSize::from_u8(self.size).unwrap()) as usize;
+        if (self.position[position_index] == State::EMPTY) {
+            return false;
+        }
+
+        self.position[position_index] = State::OCCUPIED(color);
+
+        true
     }
 }
 
 fn main() {
-    println!("Hello, world!");
+    let mut b: Board = Board::new(BoardSize::NINE);
+    b.position[Intersection { column: B, row: 2 }.to_position_index(BoardSize::NINE) as usize] =
+        State::OCCUPIED(Color::WHITE);
+    b.position[Intersection { column: B, row: 3 }.to_position_index(BoardSize::NINE) as usize] =
+        State::OCCUPIED(Color::WHITE);
+    b.position[Intersection { column: C, row: 2 }.to_position_index(BoardSize::NINE) as usize] =
+        State::OCCUPIED(Color::WHITE);
+    b.position[Intersection { column: C, row: 3 }.to_position_index(BoardSize::NINE) as usize] =
+        State::OCCUPIED(Color::WHITE);
+    b.render();
+    let (group, liberties) = b.count(
+        Intersection { column: B, row: 2 }.to_position_index(BoardSize::NINE) as usize,
+        Color::WHITE,
+    );
+    println!("Group: {:#?}", group);
+    println!("Liberties: {:#?}", liberties);
 }
