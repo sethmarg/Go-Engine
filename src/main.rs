@@ -1,11 +1,6 @@
 use std::collections::HashSet;
-use crate::ColumnIdentifier::*;
-use crate::Move::*;
 use std::fmt;
 use std::fmt::Formatter;
-use std::io::ErrorKind::Interrupted;
-use std::num::IntErrorKind;
-use std::ptr::null;
 
 /****************************************************\
 |****************    GLOBAL TYPES    ****************|
@@ -138,6 +133,7 @@ impl ColumnIdentifier {
     // Converts numeric column indecies to their respective ColumnIdentifier
     // TODO: seems messy, likely cleaner way to do this
     fn from_u8(column_index: u8) -> Option<ColumnIdentifier> {
+        use ColumnIdentifier::*;
         match column_index {
             0 => Some(A),
             1 => Some(B),
@@ -170,6 +166,7 @@ impl ColumnIdentifier {
 
 impl fmt::Display for ColumnIdentifier {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        use ColumnIdentifier::*;
         write!(
             f,
             "{}",
@@ -265,6 +262,7 @@ impl Board {
 
 impl Board {
     fn play(&mut self, mov: Move) -> bool {
+        use Move::*;
         match mov {
             PASS => true,
             MOVE(intersection, color) => self.playIntersection(intersection, color),
@@ -344,6 +342,7 @@ impl Board {
 }
 
 fn main() {
+    use ColumnIdentifier::*;
     let mut b: Board = Board::new(BoardSize::NINE);
     b.position[Intersection { column: B, row: 2 }.to_position_index(BoardSize::NINE) as usize] =
         State::OCCUPIED(Color::WHITE);
