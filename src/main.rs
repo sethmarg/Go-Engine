@@ -5,6 +5,7 @@ use std::fmt::Formatter;
 /****************************************************\
 |****************    GLOBAL TYPES    ****************|
 \****************************************************/
+
 // Stone colors
 #[derive(Copy, Clone, PartialEq)]
 enum Color {
@@ -41,6 +42,8 @@ struct Board {
     ko: Option<Intersection>,
     komi: f32,
     last_move: Move,
+    white_captures: u16,
+    black_captures: u16,
 }
 
 #[derive(PartialEq, Debug, Eq, Hash)]
@@ -66,8 +69,7 @@ enum ColumnIdentifier {
     T,
 }
 
-#[derive(PartialEq, Debug)]
-#[derive(Eq, Hash)]
+#[derive(PartialEq, Debug, Eq, Hash)]
 struct Intersection {
     column: ColumnIdentifier,
     row: u16,
@@ -88,6 +90,8 @@ impl Board {
             ko: None,
             komi: 6.5,
             last_move: Move::PASS,
+            white_captures: 0,
+            black_captures: 0,
         }
     }
 
@@ -251,6 +255,16 @@ impl Intersection {
     }
 }
 
+impl Color {
+    // Returns the opposite color of the current
+    fn oppositeColor(&self) -> Color {
+        match self {
+            Color::WHITE => Color::BLACK,
+            Color::BLACK => Color::WHITE,
+        }
+    }
+}
+
 /*****************************************************\
 |****************      RENDERING      ****************|
 \*****************************************************/
@@ -316,11 +330,7 @@ impl Board {
         liberties: &mut HashSet<Intersection>,
     ) {
         let intsc_state = self.position[position_index];
-        let intsc = Intersection::from_position_index(
-            position_index as u16,
-            &self.size,
-        )
-        .unwrap();
+        let intsc = Intersection::from_position_index(position_index as u16, &self.size).unwrap();
         match intsc_state {
             State::OCCUPIED(intsc_color) => {
                 if intsc_color == color {
@@ -352,6 +362,47 @@ impl Board {
         }
     }
 
+    // Captures the stones found in the given group, setting each intersection in the board position
+    // to State::EMPTY and incrementing the appropriate Board capture field by the number of
+    // stones captured
+    fn capture_group(&mut self, group: HashSet<Intersection>, color: Color) {
+        let stones = group.len() as u16;
+
+        for intsc in group {
+            self.position[intsc.to_position_index(&self.size) as usize] = State::EMPTY;
+        }
+
+        match color {
+            Color::WHITE => self.white_captures += stones,
+            Color::BLACK => self.black_captures += stones,
+        }
+    }
+
+    // If there is a diamond shape completely surrounding the given Intersection on this Board,
+    // return an Option containing its color. Else, return None
+    fn diamond(&self, intsc: &Intersection) -> Option<Color> {
+        let position_index = intsc.to_position_index(&self.size) as usize;
+        let mut diamond_color: Option<Color> = None;
+        let numeric_size = self.size.to_u16() as i16;
+
+        for dir in [1, -1, numeric_size + 2, -numeric_size - 2] {
+            match self.position[position_index + dir as usize] {
+                State::EMPTY => return None,
+                State::OCCUPIED(color) => match diamond_color {
+                    Some(cur_color) => {
+                        if (cur_color != color) {
+                            return None;
+                        }
+                    }
+                    None => diamond_color = Some(color),
+                },
+                State::OFFBOARD => {}
+            }
+        }
+
+        diamond_color
+    }
+
     fn play_intersection(&mut self, intsc: Intersection, color: Color) -> bool {
         if let Some(ko) = self.ko.as_ref() {
             if ko == &intsc {
@@ -359,13 +410,53 @@ impl Board {
             }
         }
 
-        let position_index =
-            intsc.to_position_index(&self.size) as usize;
+        let position_index = intsc.to_position_index(&self.size) as usize;
         if (self.position[position_index] != State::EMPTY) {
             return false;
         }
 
+        let mut new_ko: Option<Intersection> = None;
+
         self.position[position_index] = State::OCCUPIED(color);
+
+        // capture logic
+        let numeric_size = self.size.to_u16() as i16;
+        for dir in [1, -1, numeric_size + 2, -numeric_size - 2] {
+            let surrounding_intsc_index = position_index + dir as usize;
+            let (group, liberties) = self.count(surrounding_intsc_index, color.oppositeColor());
+            if (liberties.len() == 0) {
+                if (group.len() == 1) {
+                    // ensures not OFFBOARD for diamond check
+                    let surrounding_intsc = Intersection::from_position_index(
+                        surrounding_intsc_index as u16,
+                        &self.size,
+                    )
+                    .unwrap();
+                    let surrounding_color = self.diamond(&surrounding_intsc);
+                    match surrounding_color {
+                        Some(c) => {
+                            if c != color {
+                                new_ko = Some(surrounding_intsc);
+                            }
+                        }
+                        None => {}
+                    };
+                }
+                self.capture_group(group, color);
+            }
+        }
+
+        // ensure not suicide
+        let (played_group, played_liberties) = self.count(position_index, color);
+        if played_liberties.len() == 0 {
+            self.position[position_index] = State::EMPTY;
+            return false;
+        }
+        
+        // move goes through
+        self.ko = new_ko;
+        self.side = self.side.oppositeColor();
+        self.last_move = Move::MOVE(intsc, color);
 
         true
     }
@@ -373,7 +464,7 @@ impl Board {
 
 fn main() {
     use ColumnIdentifier::*;
-    let mut b: Board = Board::new(BoardSize::NINE);
+    let mut b: Board = Board::new(BoardSize::NINETEEN);
     b.position[Intersection { column: B, row: 2 }.to_position_index(&BoardSize::NINE) as usize] =
         State::OCCUPIED(Color::WHITE);
     b.position[Intersection { column: B, row: 3 }.to_position_index(&BoardSize::NINE) as usize] =
