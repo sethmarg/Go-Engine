@@ -257,27 +257,28 @@ impl Intersection {
 
 impl Board {
     // Returns a String representing a rendering of the current Board
-    fn render(&self) {
+    fn render(&self) -> String {
+        let mut render: String = String::from("");
         let position_length = (self.size.to_u16() + 2) as usize;
         for row in 1..position_length - 1 {
-            print!("{} ", position_length - row - 1);
+            render = format!("{render}{} ", position_length - row - 1);
             for col in 1..position_length - 1 {
                 let intersection = (row + 1) * position_length + col;
                 match (self.position[intersection]) {
-                    State::OCCUPIED(Color::BLACK) => print!("X "),
-                    State::OCCUPIED(Color::WHITE) => print!("0 "),
-                    State::EMPTY => print!(". "),
-                    State::OFFBOARD => print!(""),
+                    State::OCCUPIED(Color::BLACK) => render = format!("{render}X "),
+                    State::OCCUPIED(Color::WHITE) => render = format!("{render}O "),
+                    State::EMPTY => render = format!("{render}. "),
+                    State::OFFBOARD => {}
                 }
             }
-            println!()
+            render = format!("{render}\n");
         }
 
-        print!(" ");
+        render = format!("{render}  ");
         for col in 1..position_length as u16 - 1 {
-            print!(" {}", ColumnIdentifier::from_u16(col - 1).unwrap());
+            render = format!("{render} {}", ColumnIdentifier::from_u16(col - 1).unwrap());
         }
-        println!();
+        render + "\n"
     }
 }
 
@@ -381,7 +382,7 @@ fn main() {
         State::OCCUPIED(Color::WHITE);
     b.position[Intersection { column: C, row: 3 }.to_position_index(&BoardSize::NINE) as usize] =
         State::OCCUPIED(Color::WHITE);
-    b.render();
+    print!("{}", b.render());
     let (group, liberties) = b.count(
         Intersection { column: B, row: 2 }.to_position_index(&BoardSize::NINE) as usize,
         Color::WHITE,
