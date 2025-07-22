@@ -330,14 +330,9 @@ impl Board {
 \****************************************************/
 
 impl Board {
-    fn play(&mut self, mov: Move) -> bool {
-        use Move::*;
-        match mov {
-            PASS => true,
-            MOVE(intersection, color) => self.play_intersection(intersection, color),
-        }
-    }
-
+    // For a group of stones starting at the given position_index,
+    // returns a tuple of HashSet<Intersections> containing the stones in the group
+    // and the group's liberties respectively
     fn count(
         &self,
         position_index: usize,
@@ -351,6 +346,7 @@ impl Board {
         (group, liberties)
     }
 
+    // Recursive helper for the above count function
     fn count_help(
         &self,
         position_index: usize,
@@ -358,6 +354,7 @@ impl Board {
         group: &mut HashSet<Intersection>,
         liberties: &mut HashSet<Intersection>,
     ) {
+        // TODO: likely should be broken up into more helpers
         let intsc_state = self.position[position_index];
         let intsc = Intersection::from_position_index(position_index as u16, &self.size);
         match intsc_state {
@@ -440,7 +437,20 @@ impl Board {
         None
     }
 
+    // Attempts to play the given Move on this Board. If successful, updates the current Board
+    // accordingly and returns true. Else returns false.
+    fn play(&mut self, mov: Move) -> bool {
+        use Move::*;
+        match mov {
+            PASS => true,
+            MOVE(intersection, color) => self.play_intersection(intersection, color),
+        }
+    }
+
+    // Attempts to play a stone of the given Color and the given Intersection on this Board.
+    // If successful, updates this Board accordingly and returns true. Else returns false.
     fn play_intersection(&mut self, intsc: Intersection, color: Color) -> bool {
+        //TODO: absolutely update this function with helpers, completely unreadable in current state
         if let Some(ko) = self.ko.as_ref() {
             if ko == &intsc {
                 return false;
@@ -473,7 +483,7 @@ impl Board {
                                 surrounding_intsc_index as u16,
                                 &self.size,
                             )
-                                .unwrap();
+                            .unwrap();
                             let surrounding_color = self.diamond(&surrounding_intsc);
                             match surrounding_color {
                                 Some(c) => {
@@ -501,11 +511,15 @@ impl Board {
             self.side = self.side.opposite_color();
             self.last_move = Move::MOVE(intsc, color);
 
-            return true
+            return true;
         };
         false
     }
 }
+
+/****************************************************\
+|****************        MAIN        ****************|
+\****************************************************/
 
 fn main() {
     use ColumnIdentifier::*;
@@ -524,7 +538,9 @@ fn main() {
     //     State::OCCUPIED(Color::WHITE);
     print!("{}", b.render());
     let (group, liberties) = b.count(
-        Intersection { column: B, row: 2 }.to_position_index(&b.size).unwrap() as usize,
+        Intersection { column: B, row: 2 }
+            .to_position_index(&b.size)
+            .unwrap() as usize,
         Color::WHITE,
     );
     println!("Group: {:#?}", group);
