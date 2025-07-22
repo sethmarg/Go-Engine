@@ -1,7 +1,8 @@
+mod tests;
+
 use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Formatter;
-
 /****************************************************\
 |****************    GLOBAL TYPES    ****************|
 \****************************************************/
@@ -244,11 +245,15 @@ impl fmt::Display for ColumnIdentifier {
 impl Intersection {
     // Converts this Intersection into its index in a position vector on the given BoardSize Board
     // TODO: TESTS!!!
-    fn to_position_index(&self, size: &BoardSize) -> u16 {
+    fn to_position_index(&self, size: &BoardSize) -> Option<u16> {
         let position_length = size.to_u16() + 2;
         let column_index = self.column.to_u16();
         let row_index = (position_length - self.row - 1) * position_length;
-        column_index + row_index + 1
+        if column_index + row_index + 1 >= position_length * position_length {
+            None
+        } else {
+            Some(column_index + row_index + 1)
+        }
     }
 
     fn from_position_index(position_index: u16, size: &BoardSize) -> Option<Intersection> {
@@ -274,7 +279,7 @@ impl Intersection {
 
 impl Color {
     // Returns the opposite color of the current
-    fn oppositeColor(&self) -> Color {
+    fn opposite_color(&self) -> Color {
         match self {
             Color::WHITE => Color::BLACK,
             Color::BLACK => Color::WHITE,
@@ -288,13 +293,18 @@ impl Color {
 
 impl Board {
     // Returns a String representing a rendering of the current Board
+    // TODO: MESSY CODE PLEASE FIX AND MAKE MORE READABLE
     fn render(&self) -> String {
         let mut render: String = String::from("");
         let position_length = (self.size.to_u16() + 2) as usize;
         for row in 1..position_length - 1 {
+            if (position_length - row <= 10) {
+                // TODO: fix this
+                render = format!("{render} ");
+            }
             render = format!("{render}{} ", position_length - row - 1);
             for col in 1..position_length - 1 {
-                let intersection = (row + 1) * position_length + col;
+                let intersection = row * position_length + col; // TODO: also this
                 match (self.position[intersection]) {
                     State::OCCUPIED(Color::BLACK) => render = format!("{render}X "),
                     State::OCCUPIED(Color::WHITE) => render = format!("{render}O "),
@@ -347,12 +357,13 @@ impl Board {
         liberties: &mut HashSet<Intersection>,
     ) {
         let intsc_state = self.position[position_index];
-        let intsc = Intersection::from_position_index(position_index as u16, &self.size).unwrap();
+        let intsc = Intersection::from_position_index(position_index as u16, &self.size);
         match intsc_state {
             State::OCCUPIED(intsc_color) => {
                 if intsc_color == color {
-                    if !group.contains(&intsc) {
-                        group.insert(intsc);
+                    let intsc_unwrapped = intsc.unwrap();
+                    if !group.contains(&intsc_unwrapped) {
+                        group.insert(intsc_unwrapped);
                         self.count_help(position_index + 1, color, group, liberties);
                         self.count_help(position_index - 1, color, group, liberties);
                         self.count_help(
@@ -371,8 +382,9 @@ impl Board {
                 }
             }
             State::EMPTY => {
-                if !liberties.contains(&intsc) {
-                    liberties.insert(intsc);
+                let intsc_unwrapped = intsc.unwrap();
+                if !liberties.contains(&intsc_unwrapped) {
+                    liberties.insert(intsc_unwrapped);
                 }
             }
             State::OFFBOARD => {} // do nothing
@@ -386,7 +398,9 @@ impl Board {
         let stones = group.len() as u16;
 
         for intsc in group {
-            self.position[intsc.to_position_index(&self.size) as usize] = State::EMPTY;
+            if let Some(stone) = intsc.to_position_index(&self.size) {
+                self.position[stone as usize] = State::EMPTY;
+            }
         }
 
         match color {
@@ -398,9 +412,9 @@ impl Board {
     // If there is a diamond shape completely surrounding the given Intersection on this Board,
     // return an Option containing its color. Else, return None
     fn diamond(&self, intsc: &Intersection) -> Option<Color> {
-        let position_index = intsc.to_position_index(&self.size) as usize;
-        let mut diamond_color: Option<Color> = None;
-        let numeric_size = self.size.to_u16() as i16;
+        if let Some(position_index) = intsc.to_position_index(&self.size) {
+            let mut diamond_color: Option<Color> = None;
+            let numeric_size = self.size.to_u16() as i16;
 
             for dir in [1, -1, numeric_size + 2, -numeric_size - 2] {
                 let surrounding_position_index = add_to_usize(position_index as usize, dir);
@@ -431,10 +445,11 @@ impl Board {
             }
         }
 
-        let position_index = intsc.to_position_index(&self.size) as usize;
-        if (self.position[position_index] != State::EMPTY) {
-            return false;
-        }
+        if let Some(position_index_u16) = intsc.to_position_index(&self.size) {
+            let position_index = position_index_u16 as usize;
+            if (self.position[position_index] != State::EMPTY) {
+                return false;
+            }
 
             let mut new_ko: Option<Intersection> = None;
 
@@ -484,24 +499,30 @@ impl Board {
             self.side = self.side.opposite_color();
             self.last_move = Move::MOVE(intsc, color);
 
-        true
+            return true
+        };
+        false
     }
 }
 
 fn main() {
     use ColumnIdentifier::*;
     let mut b: Board = Board::new(BoardSize::NINETEEN);
-    b.position[Intersection { column: B, row: 2 }.to_position_index(&BoardSize::NINE) as usize] =
-        State::OCCUPIED(Color::WHITE);
-    b.position[Intersection { column: B, row: 3 }.to_position_index(&BoardSize::NINE) as usize] =
-        State::OCCUPIED(Color::WHITE);
-    b.position[Intersection { column: C, row: 2 }.to_position_index(&BoardSize::NINE) as usize] =
-        State::OCCUPIED(Color::WHITE);
-    b.position[Intersection { column: C, row: 3 }.to_position_index(&BoardSize::NINE) as usize] =
-        State::OCCUPIED(Color::WHITE);
+    b.play(Move::MOVE(Intersection { column: B, row: 2 }, Color::WHITE));
+    b.play(Move::MOVE(Intersection { column: B, row: 3 }, Color::WHITE));
+    b.play(Move::MOVE(Intersection { column: C, row: 2 }, Color::WHITE));
+    b.play(Move::MOVE(Intersection { column: C, row: 3 }, Color::WHITE));
+    // b.position[Intersection { column: B, row: 2 }.to_position_index(&b.size) as usize] =
+    //     State::OCCUPIED(Color::WHITE);
+    // b.position[Intersection { column: B, row: 3 }.to_position_index(&b.size) as usize] =
+    //     State::OCCUPIED(Color::WHITE);
+    // b.position[Intersection { column: C, row: 2 }.to_position_index(&b.size) as usize] =
+    //     State::OCCUPIED(Color::WHITE);
+    // b.position[Intersection { column: C, row: 3 }.to_position_index(&b.size) as usize] =
+    //     State::OCCUPIED(Color::WHITE);
     print!("{}", b.render());
     let (group, liberties) = b.count(
-        Intersection { column: B, row: 2 }.to_position_index(&BoardSize::NINE) as usize,
+        Intersection { column: B, row: 2 }.to_position_index(&b.size).unwrap() as usize,
         Color::WHITE,
     );
     println!("Group: {:#?}", group);
