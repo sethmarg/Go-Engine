@@ -116,6 +116,23 @@ impl Board {
 |****************       HELPER       ****************|
 \****************************************************/
 
+// Adds the given i16 value to the base usize value.
+// If an underflow or overflow occurs, returns None.
+// Else, returns Some(sum as usize)
+fn add_to_usize(base: usize, to_add: i16) -> Option<usize> {
+    if to_add > 0 {
+        if (usize::MAX - to_add as usize) < base {
+            return None;
+        }
+        Some(base + to_add as usize)
+    } else {
+        if to_add.abs() as usize > base {
+            return None;
+        }
+        Some(base - to_add.abs() as usize)
+    }
+}
+
 impl BoardSize {
     // converts numeric board sizes into their respective BoardSize
     fn from_u16(size: u16) -> Option<BoardSize> {
@@ -385,22 +402,26 @@ impl Board {
         let mut diamond_color: Option<Color> = None;
         let numeric_size = self.size.to_u16() as i16;
 
-        for dir in [1, -1, numeric_size + 2, -numeric_size - 2] {
-            match self.position[position_index + dir as usize] {
-                State::EMPTY => return None,
-                State::OCCUPIED(color) => match diamond_color {
-                    Some(cur_color) => {
-                        if (cur_color != color) {
-                            return None;
-                        }
+            for dir in [1, -1, numeric_size + 2, -numeric_size - 2] {
+                let surrounding_position_index = add_to_usize(position_index as usize, dir);
+                if surrounding_position_index.is_some() {
+                    match self.position[surrounding_position_index.unwrap()] {
+                        State::EMPTY => return None,
+                        State::OCCUPIED(color) => match diamond_color {
+                            Some(cur_color) => {
+                                if (cur_color != color) {
+                                    return None;
+                                }
+                            }
+                            None => diamond_color = Some(color),
+                        },
+                        State::OFFBOARD => {}
                     }
-                    None => diamond_color = Some(color),
-                },
-                State::OFFBOARD => {}
+                }
             }
-        }
-
-        diamond_color
+            return diamond_color;
+        };
+        None
     }
 
     fn play_intersection(&mut self, intsc: Intersection, color: Color) -> bool {
@@ -415,48 +436,53 @@ impl Board {
             return false;
         }
 
-        let mut new_ko: Option<Intersection> = None;
+            let mut new_ko: Option<Intersection> = None;
 
-        self.position[position_index] = State::OCCUPIED(color);
+            self.position[position_index] = State::OCCUPIED(color);
 
-        // capture logic
-        let numeric_size = self.size.to_u16() as i16;
-        for dir in [1, -1, numeric_size + 2, -numeric_size - 2] {
-            let surrounding_intsc_index = position_index + dir as usize;
-            let (group, liberties) = self.count(surrounding_intsc_index, color.oppositeColor());
-            if (liberties.len() == 0) {
-                if (group.len() == 1) {
-                    // ensures not OFFBOARD for diamond check
-                    let surrounding_intsc = Intersection::from_position_index(
-                        surrounding_intsc_index as u16,
-                        &self.size,
-                    )
-                    .unwrap();
-                    let surrounding_color = self.diamond(&surrounding_intsc);
-                    match surrounding_color {
-                        Some(c) => {
-                            if c != color {
-                                new_ko = Some(surrounding_intsc);
-                            }
+            // capture logic
+            let numeric_size = self.size.to_u16() as i16;
+            println!("Index: {position_index}, Intersection: {:#?}", intsc);
+            for dir in [1, -1, numeric_size + 2, -numeric_size - 2] {
+                let o_surrounding_intsc_index = add_to_usize(position_index, dir);
+                if o_surrounding_intsc_index.is_some() {
+                    let surrounding_intsc_index = o_surrounding_intsc_index.unwrap();
+                    let (group, liberties) =
+                        self.count(surrounding_intsc_index, color.opposite_color());
+                    if (liberties.len() == 0) {
+                        if (group.len() == 1) {
+                            // ensures not OFFBOARD for diamond check
+                            let surrounding_intsc = Intersection::from_position_index(
+                                surrounding_intsc_index as u16,
+                                &self.size,
+                            )
+                                .unwrap();
+                            let surrounding_color = self.diamond(&surrounding_intsc);
+                            match surrounding_color {
+                                Some(c) => {
+                                    if c != color {
+                                        new_ko = Some(surrounding_intsc);
+                                    }
+                                }
+                                None => {}
+                            };
                         }
-                        None => {}
-                    };
+                        self.capture_group(group, color);
+                    }
                 }
-                self.capture_group(group, color);
             }
-        }
 
-        // ensure not suicide
-        let (played_group, played_liberties) = self.count(position_index, color);
-        if played_liberties.len() == 0 {
-            self.position[position_index] = State::EMPTY;
-            return false;
-        }
-        
-        // move goes through
-        self.ko = new_ko;
-        self.side = self.side.oppositeColor();
-        self.last_move = Move::MOVE(intsc, color);
+            // ensure not suicide
+            let (_, played_liberties) = self.count(position_index, color);
+            if played_liberties.len() == 0 {
+                self.position[position_index] = State::EMPTY;
+                return false;
+            }
+
+            // move goes through
+            self.ko = new_ko;
+            self.side = self.side.opposite_color();
+            self.last_move = Move::MOVE(intsc, color);
 
         true
     }
