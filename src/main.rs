@@ -8,7 +8,7 @@ use std::fmt::Formatter;
 \****************************************************/
 
 // Stone colors
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 enum Color {
     WHITE,
     BLACK,
@@ -23,6 +23,7 @@ enum State {
 }
 
 // Valid Go board sizes and their numeric values
+#[derive(Debug, PartialEq)]
 enum BoardSize {
     NINE,
     THIRTEEN,
@@ -41,7 +42,7 @@ struct Board {
     position: Vec<State>,
     side: Color,
     ko: Option<Intersection>,
-    komi: f32,
+    //komi: f32, TODO: UNCOMMENT
     last_move: Move,
     white_captures: u16,
     black_captures: u16,
@@ -89,7 +90,7 @@ impl Board {
             position: Board::empty_board(numeric_size),
             side: Color::BLACK,
             ko: None,
-            komi: 6.5,
+            //komi: 6.5, // TODO: uncomment
             last_move: Move::PASS,
             white_captures: 0,
             black_captures: 0,
@@ -101,7 +102,7 @@ impl Board {
         let mut position: Vec<State> = vec![];
         for row in 0..size + 2 {
             for col in 0..size + 2 {
-                if (row == 0 || row == size + 1 || col == 0 || col == size + 1) {
+                if row == 0 || row == size + 1 || col == 0 || col == size + 1 {
                     position.push(State::OFFBOARD);
                 } else {
                     position.push(State::EMPTY);
@@ -156,7 +157,7 @@ impl BoardSize {
 }
 
 impl ColumnIdentifier {
-    // Converts numeric column indecies to their respective ColumnIdentifier
+    // Converts numeric column indices to their respective ColumnIdentifier
     // TODO: seems messy, likely cleaner way to do this
     fn from_u16(column_index: u16) -> Option<ColumnIdentifier> {
         use ColumnIdentifier::*;
@@ -248,10 +249,11 @@ impl Intersection {
     fn to_position_index(&self, size: &BoardSize) -> Option<u16> {
         let position_length = size.to_u16() + 2;
         let column_index = self.column.to_u16();
-        let row_index = (position_length - self.row - 1) * position_length;
-        if column_index + row_index + 1 >= position_length * position_length {
+        if column_index >= size.to_u16() || self.row > size.to_u16() || self.row == 0 {
             None
         } else {
+            // row_index must be defined here in now impossible the event self.row is 0
+            let row_index = (position_length - self.row - 1) * position_length;
             Some(column_index + row_index + 1)
         }
     }
@@ -266,13 +268,13 @@ impl Intersection {
         let col = position_index % position_length;
         let row = position_index / position_length;
 
-        if (col == 0 || col == position_length - 1 || row == 0 || row == position_length - 1) {
+        if col == 0 || col == position_length - 1 || row == 0 || row == position_length - 1 {
             return None;
         }
 
         Some(Intersection {
             column: ColumnIdentifier::from_u16(col - 1).unwrap(),
-            row: (position_length - row),
+            row: position_length - row - 1,
         })
     }
 }
@@ -298,14 +300,14 @@ impl Board {
         let mut render: String = String::from("");
         let position_length = (self.size.to_u16() + 2) as usize;
         for row in 1..position_length - 1 {
-            if (position_length - row <= 10) {
+            if position_length - row <= 10 {
                 // TODO: fix this
                 render = format!("{render} ");
             }
             render = format!("{render}{} ", position_length - row - 1);
             for col in 1..position_length - 1 {
                 let intersection = row * position_length + col; // TODO: also this
-                match (self.position[intersection]) {
+                match self.position[intersection] {
                     State::OCCUPIED(Color::BLACK) => render = format!("{render}X "),
                     State::OCCUPIED(Color::WHITE) => render = format!("{render}O "),
                     State::EMPTY => render = format!("{render}. "),
@@ -423,7 +425,7 @@ impl Board {
                         State::EMPTY => return None,
                         State::OCCUPIED(color) => match diamond_color {
                             Some(cur_color) => {
-                                if (cur_color != color) {
+                                if cur_color != color {
                                     return None;
                                 }
                             }
@@ -447,7 +449,7 @@ impl Board {
 
         if let Some(position_index_u16) = intsc.to_position_index(&self.size) {
             let position_index = position_index_u16 as usize;
-            if (self.position[position_index] != State::EMPTY) {
+            if self.position[position_index] != State::EMPTY {
                 return false;
             }
 
@@ -464,8 +466,8 @@ impl Board {
                     let surrounding_intsc_index = o_surrounding_intsc_index.unwrap();
                     let (group, liberties) =
                         self.count(surrounding_intsc_index, color.opposite_color());
-                    if (liberties.len() == 0) {
-                        if (group.len() == 1) {
+                    if liberties.len() == 0 {
+                        if group.len() == 1 {
                             // ensures not OFFBOARD for diamond check
                             let surrounding_intsc = Intersection::from_position_index(
                                 surrounding_intsc_index as u16,
