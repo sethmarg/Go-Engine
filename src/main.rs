@@ -2,7 +2,7 @@ mod tests;
 
 use std::collections::HashSet;
 use std::fmt;
-use std::fmt::Formatter;
+use std::fmt::{Debug, Formatter};
 /****************************************************\
 |****************    GLOBAL TYPES    ****************|
 \****************************************************/
@@ -15,7 +15,7 @@ enum Color {
 }
 
 // The state that a given intersection can be in
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 enum State {
     OCCUPIED(Color),
     EMPTY,
@@ -23,7 +23,7 @@ enum State {
 }
 
 // Valid Go board sizes and their numeric values
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 enum BoardSize {
     NINE,
     THIRTEEN,
@@ -31,12 +31,14 @@ enum BoardSize {
 }
 
 // Moves performed on a Board
+#[derive(Copy, Clone, PartialEq, Debug)]
 enum Move {
     PASS,
     MOVE(Intersection, Color),
 }
 
 // Go Board structure
+#[derive(PartialEq)]
 struct Board {
     size: BoardSize,
     position: Vec<State>,
@@ -71,7 +73,7 @@ enum ColumnIdentifier {
     T,
 }
 
-#[derive(PartialEq, Debug, Eq, Hash)]
+#[derive(PartialEq, Debug, Eq, Hash, Clone, Copy)]
 struct Intersection {
     column: ColumnIdentifier,
     row: u16,
