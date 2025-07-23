@@ -129,6 +129,26 @@ impl Board {
 
         position
     }
+
+    // Creates and returns a new identical Board to this one
+    // which has no aliasing nor relation to this Board
+    fn deepcopy(&self) -> Board {
+        let mut position_copy: Vec<State> = vec![];
+        for intsc_state in &self.position {
+            position_copy.push(intsc_state.clone());
+        }
+
+        Board {
+            size: self.size.clone(),
+            position: position_copy,
+            side: self.side.clone(),
+            ko: self.ko.clone(),
+            // komi: self.komi.clone(),
+            last_move: self.last_move.clone(),
+            white_captures: self.white_captures,
+            black_captures: self.black_captures,
+        }
+    }
 }
 
 /****************************************************\
