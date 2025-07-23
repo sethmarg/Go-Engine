@@ -50,7 +50,22 @@ struct Board {
     black_captures: u16,
 }
 
-#[derive(PartialEq, Debug, Eq, Hash)]
+impl Debug for Board {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        // TODO: try to maybe find a way to add the /n before the }
+        f.debug_struct("Board")
+            .field("\n\tSize", &self.size)
+            .field("\n\tPosition", &self.position)
+            .field("\n\tKo", &self.ko)
+            //.field("\n\tKomi", &self.komi)
+            .field("\n\tLast Move", &self.last_move)
+            .field("\n\tWhite Captures", &self.white_captures)
+            .field("\n\tBlack Captures", &self.black_captures)
+            .finish()
+    }
+}
+
+#[derive(PartialEq, Debug, Eq, Hash, Clone, Copy)]
 enum ColumnIdentifier {
     A,
     B,
