@@ -506,11 +506,8 @@ impl Board {
 
             // capture logic
             let numeric_size = self.size.to_u16() as i16;
-            println!("Index: {position_index}, Intersection: {:#?}", intsc);
             for dir in [1, -1, numeric_size + 2, -numeric_size - 2] {
-                let o_surrounding_intsc_index = add_to_usize(position_index, dir);
-                if o_surrounding_intsc_index.is_some() {
-                    let surrounding_intsc_index = o_surrounding_intsc_index.unwrap();
+                if let Some(surrounding_intsc_index) = add_to_usize(position_index, dir) {
                     let (group, liberties) =
                         self.count(surrounding_intsc_index, color.opposite_color());
                     if liberties.len() == 0 {
@@ -521,15 +518,11 @@ impl Board {
                                 &self.size,
                             )
                             .unwrap();
-                            let surrounding_color = self.diamond(&surrounding_intsc);
-                            match surrounding_color {
-                                Some(c) => {
-                                    if c != color {
-                                        new_ko = Some(surrounding_intsc);
-                                    }
+                            if let Some(surrounding_color) = self.diamond(&intsc) {
+                                if surrounding_color != color {
+                                    new_ko = Some(surrounding_intsc);
                                 }
-                                None => {}
-                            };
+                            }
                         }
                         self.capture_group(group, color);
                     }
@@ -545,7 +538,7 @@ impl Board {
 
             // move goes through
             self.ko = new_ko;
-            self.side = self.side.opposite_color();
+            self.side = color.opposite_color();
             self.last_move = Move::MOVE(intsc, color);
 
             return true;
