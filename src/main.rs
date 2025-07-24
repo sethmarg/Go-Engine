@@ -1,12 +1,13 @@
 mod tests;
 mod board;
-use board::*;
+mod gtp;
 
+use board::*;
 /****************************************************\
 |****************        MAIN        ****************|
 \****************************************************/
 
-fn main() {
+fn debug() {
     use ColumnIdentifier::*;
     let mut b: Board = Board::new(BoardSize::NINETEEN);
     b.play(Move::MOVE(Intersection::new(B, 2), Color::WHITE));
@@ -30,4 +31,21 @@ fn main() {
     );
     println!("Group: {:#?}", group);
     println!("Liberties: {:#?}", liberties);
+}
+
+fn main() {
+    use std::env;
+    use gtp::GTP;
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 {
+        panic!("Run mode not given");
+    }
+    
+    if args[1].eq_ignore_ascii_case("debug") {
+        debug();
+    } else if args[1].eq_ignore_ascii_case("gtp") {
+        GTP::start().expect("Something went wrong during GTP loop");
+    } else {
+        panic!("Invalid run mode given: {}\n Run mode must be debug or gtp", args[1]);
+    }
 }
