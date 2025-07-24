@@ -1,6 +1,5 @@
 #[cfg(test)]
 use super::*;
-
 /*****************************************************\
 |****************        SETUP        ****************|
 \*****************************************************/
@@ -11,14 +10,11 @@ fn test_board_deepcopy() {
     let board_copy = board.deepcopy();
     assert_eq!(board, board_copy); // copies of each other
 
-    board.play_intersection(
-        Intersection {
-            column: ColumnIdentifier::A,
-            row: 1,
-        },
+    board.play(Move::MOVE(
+        Intersection::new(ColumnIdentifier::A, 1),
         Color::WHITE,
-    );
-    
+    ));
+
     assert_ne!(board, board_copy); // board has updated, board_copy has not
 }
 
@@ -126,15 +122,15 @@ fn test_column_identifier_to_string() {
 #[test]
 fn test_intersection_to_position_index() {
     use ColumnIdentifier::*;
-    let intsc1 = Intersection { column: A, row: 1 }; // works on every board
-    let intsc2 = Intersection { column: K, row: 3 }; // does not work on 9x9, too high of column
-    let intsc3 = Intersection { column: J, row: 10 }; // does not work on 9x9, too high of row
-    let intsc4 = Intersection { column: M, row: 12 }; // does not work on 9x9, both dimensions
-    let intsc5 = Intersection { column: Q, row: 5 }; // only works on 19x19, too high of column
-    let intsc6 = Intersection { column: B, row: 15 }; // only works on 19x19, too high of row
-    let intsc7 = Intersection { column: S, row: 16 }; // only works on 19x19, both dimensions
-    let intsc8 = Intersection { column: A, row: 20 }; // never works
-    let intsc9 = Intersection { column: O, row: 0 }; // too low of row, never works
+    let intsc1 = Intersection::new(A, 1); // works on every board
+    let intsc2 = Intersection::new(K, 3); // does not work on 9x9, too high of column
+    let intsc3 = Intersection::new(J, 10); // does not work on 9x9, too high of row
+    let intsc4 = Intersection::new(M, 12); // does not work on 9x9, both dimensions
+    let intsc5 = Intersection::new(Q, 5); // only works on 19x19, too high of column
+    let intsc6 = Intersection::new(B, 15); // only works on 19x19, too high of row
+    let intsc7 = Intersection::new(S, 16); // only works on 19x19, both dimensions
+    let intsc8 = Intersection::new(A, 20); // never works
+    let intsc9 = Intersection::new(O, 0); // too low of row, never works
 
     assert_eq!(intsc1.to_position_index(&BoardSize::NINE), Some(100));
     assert_eq!(intsc1.to_position_index(&BoardSize::THIRTEEN), Some(196));
@@ -191,7 +187,7 @@ fn test_intersection_from_position_index() {
     // Offboard on some Boards
     assert_eq!(
         Intersection::from_position_index(12, &BoardSize::NINE),
-        Some(Intersection { column: A, row: 9 })
+        Some(Intersection::new(A, 9))
     );
     assert_eq!(
         Intersection::from_position_index(12, &BoardSize::THIRTEEN),
@@ -209,25 +205,25 @@ fn test_intersection_from_position_index() {
     );
     assert_eq!(
         Intersection::from_position_index(122, &BoardSize::THIRTEEN),
-        Some(Intersection { column: B, row: 6 })
+        Some(Intersection::new(B, 6))
     );
     assert_eq!(
         Intersection::from_position_index(122, &BoardSize::NINETEEN),
-        Some(Intersection { column: R, row: 15 })
+        Some(Intersection::new(R, 15))
     );
 
     // Intersection that position index relates to depends on BoardSize
     assert_eq!(
         Intersection::from_position_index(73, &BoardSize::NINE),
-        Some(Intersection { column: G, row: 4 })
+        Some(Intersection::new(G, 4))
     );
     assert_eq!(
         Intersection::from_position_index(73, &BoardSize::THIRTEEN),
-        Some(Intersection { column: N, row: 10 })
+        Some(Intersection::new(N, 10))
     );
     assert_eq!(
         Intersection::from_position_index(73, &BoardSize::NINETEEN),
-        Some(Intersection { column: K, row: 17 })
+        Some(Intersection::new(K, 17))
     );
 }
 
@@ -245,43 +241,35 @@ fn test_opposite_color() {
 
 #[test]
 fn test_count() {
+    use std::collections::HashSet;
     use ColumnIdentifier::*;
     let mut expected_group: HashSet<Intersection> = HashSet::new();
     let mut expected_liberties: HashSet<Intersection> = HashSet::new();
     let mut board = Board::new(BoardSize::NINETEEN);
-    expected_group.insert(Intersection { column: B, row: 2 });
-    expected_group.insert(Intersection { column: C, row: 2 });
-    expected_group.insert(Intersection { column: D, row: 2 });
-    expected_group.insert(Intersection { column: D, row: 1 });
-    expected_group.insert(Intersection { column: E, row: 1 });
+    expected_group.insert(Intersection::new(B, 2));
+    expected_group.insert(Intersection::new(C, 2));
+    expected_group.insert(Intersection::new(D, 2));
+    expected_group.insert(Intersection::new(D, 1));
+    expected_group.insert(Intersection::new(E, 1));
 
-    expected_liberties.insert(Intersection { column: B, row: 1 });
-    expected_liberties.insert(Intersection { column: C, row: 1 });
-    expected_liberties.insert(Intersection { column: A, row: 2 });
-    expected_liberties.insert(Intersection { column: D, row: 3 });
-    expected_liberties.insert(Intersection { column: F, row: 1 });
+    expected_liberties.insert(Intersection::new(B, 1));
+    expected_liberties.insert(Intersection::new(C, 1));
+    expected_liberties.insert(Intersection::new(A, 2));
+    expected_liberties.insert(Intersection::new(D, 3));
+    expected_liberties.insert(Intersection::new(F, 1));
 
     for intsc in &expected_group {
-        board.position[intsc.to_position_index(&BoardSize::NINETEEN).unwrap() as usize] =
-            State::OCCUPIED(Color::BLACK);
+        board.play(Move::MOVE(intsc.clone(), Color::BLACK));
     }
 
-    board.position[Intersection { column: F, row: 2 }
-        .to_position_index(&BoardSize::NINETEEN)
-        .unwrap() as usize] = State::OCCUPIED(Color::BLACK);
-    board.position[Intersection { column: B, row: 3 }
-        .to_position_index(&BoardSize::NINETEEN)
-        .unwrap() as usize] = State::OCCUPIED(Color::WHITE);
-    board.position[Intersection { column: C, row: 3 }
-        .to_position_index(&BoardSize::NINETEEN)
-        .unwrap() as usize] = State::OCCUPIED(Color::WHITE);
-    board.position[Intersection { column: E, row: 2 }
-        .to_position_index(&BoardSize::NINETEEN)
-        .unwrap() as usize] = State::OCCUPIED(Color::WHITE);
+    board.play(Move::MOVE(Intersection::new(F, 2), Color::BLACK));
+    board.play(Move::MOVE(Intersection::new(B, 3), Color::WHITE));
+    board.play(Move::MOVE(Intersection::new(C, 3), Color::WHITE));
+    board.play(Move::MOVE(Intersection::new(E, 2), Color::WHITE));
 
     assert_eq!(
         board.count(
-            Intersection { column: D, row: 1 } // intersection does not matter as long as it is part of the group
+            Intersection::new(D, 1) // intersection does not matter as long as it is part of the group
                 .to_position_index(&BoardSize::NINETEEN)
                 .unwrap() as usize,
             Color::BLACK
@@ -294,63 +282,54 @@ fn test_count() {
 fn test_diamond_corner() {
     use ColumnIdentifier::*;
     let mut board = Board::new(BoardSize::NINETEEN);
-    assert_eq!(board.diamond(&Intersection { column: A, row: 1 }), None); // no diamond by default
-    board.play_intersection(Intersection { column: A, row: 2 }, Color::WHITE);
-    assert_eq!(board.diamond(&Intersection { column: A, row: 1 }), None); // diamond not yet constructed
-    board.play_intersection(Intersection { column: B, row: 1 }, Color::WHITE);
-    assert_eq!(
-        board.diamond(&Intersection { column: A, row: 1 }),
-        Some(Color::WHITE)
-    ); // diamond has been constructed on corner
+    assert_eq!(board.diamond(&Intersection::new(A, 1)), None); // no diamond by default
+    board.play(Move::MOVE(Intersection::new(A, 2), Color::WHITE));
+    assert_eq!(board.diamond(&Intersection::new(A, 1)), None); // diamond not yet constructed
+    board.play(Move::MOVE(Intersection::new(B, 1), Color::WHITE));
+    assert_eq!(board.diamond(&Intersection::new(A, 1)), Some(Color::WHITE)); // diamond has been constructed on corner
 }
 
 #[test]
 fn test_diamond_side() {
     use ColumnIdentifier::*;
     let mut board = Board::new(BoardSize::NINETEEN);
-    assert_eq!(board.diamond(&Intersection { column: E, row: 1 }), None); // no diamond by default
-    board.play_intersection(Intersection { column: D, row: 1 }, Color::BLACK);
-    assert_eq!(board.diamond(&Intersection { column: E, row: 1 }), None); // diamond not yet constructed
-    board.play_intersection(Intersection { column: E, row: 2 }, Color::BLACK);
-    assert_eq!(board.diamond(&Intersection { column: E, row: 1 }), None); // diamond still not yet constructed
-    board.play_intersection(Intersection { column: F, row: 1 }, Color::BLACK);
-    assert_eq!(
-        board.diamond(&Intersection { column: E, row: 1 }),
-        Some(Color::BLACK)
-    ); // diamond has been constructed on side
+    assert_eq!(board.diamond(&Intersection::new(E, 1)), None); // no diamond by default
+    board.play(Move::MOVE(Intersection::new(D, 1), Color::BLACK));
+    assert_eq!(board.diamond(&Intersection::new(E, 1)), None); // diamond not yet constructed
+    board.play(Move::MOVE(Intersection::new(E, 2), Color::BLACK));
+    assert_eq!(board.diamond(&Intersection::new(E, 1)), None); // diamond still not yet constructed
+    board.play(Move::MOVE(Intersection::new(F, 1), Color::BLACK));
+    assert_eq!(board.diamond(&Intersection::new(E, 1)), Some(Color::BLACK)); // diamond has been constructed on side
 }
 
 #[test]
 fn test_diamond_center() {
     use ColumnIdentifier::*;
     let mut board = Board::new(BoardSize::NINETEEN);
-    assert_eq!(board.diamond(&Intersection { column: O, row: 13 }), None); // no diamond by default
-    board.play_intersection(Intersection { column: O, row: 14 }, Color::BLACK);
-    assert_eq!(board.diamond(&Intersection { column: O, row: 13 }), None); // diamond not yet constructed
-    board.play_intersection(Intersection { column: O, row: 12 }, Color::BLACK);
-    assert_eq!(board.diamond(&Intersection { column: O, row: 13 }), None); // diamond still not yet constructed
-    board.play_intersection(Intersection { column: N, row: 13 }, Color::BLACK);
-    assert_eq!(board.diamond(&Intersection { column: O, row: 13 }), None); // one more...
-    board.play_intersection(Intersection { column: P, row: 13 }, Color::BLACK);
-    assert_eq!(
-        board.diamond(&Intersection { column: O, row: 13 }),
-        Some(Color::BLACK)
-    ); // diamond has been constructed on side
+    assert_eq!(board.diamond(&Intersection::new(O, 13)), None); // no diamond by default
+    board.play(Move::MOVE(Intersection::new(O, 14), Color::BLACK));
+    assert_eq!(board.diamond(&Intersection::new(O, 13)), None); // diamond not yet constructed
+    board.play(Move::MOVE(Intersection::new(O, 12), Color::BLACK));
+    assert_eq!(board.diamond(&Intersection::new(O, 13)), None); // diamond still not yet constructed
+    board.play(Move::MOVE(Intersection::new(N, 13), Color::BLACK));
+    assert_eq!(board.diamond(&Intersection::new(O, 13)), None); // one more...
+    board.play(Move::MOVE(Intersection::new(P, 13), Color::BLACK));
+    assert_eq!(board.diamond(&Intersection::new(O, 13)), Some(Color::BLACK)); // diamond has been constructed on side
 }
 
 #[test]
 fn test_diamond_multiple_colors() {
     use ColumnIdentifier::*;
     let mut board = Board::new(BoardSize::NINETEEN);
-    assert_eq!(board.diamond(&Intersection { column: O, row: 13 }), None); // no diamond by default
-    board.play_intersection(Intersection { column: O, row: 14 }, Color::BLACK);
-    assert_eq!(board.diamond(&Intersection { column: O, row: 13 }), None); // diamond not yet constructed
-    board.play_intersection(Intersection { column: O, row: 12 }, Color::BLACK);
-    assert_eq!(board.diamond(&Intersection { column: O, row: 13 }), None); // diamond still not yet constructed
-    board.play_intersection(Intersection { column: N, row: 13 }, Color::BLACK);
-    assert_eq!(board.diamond(&Intersection { column: O, row: 13 }), None); // one more...
-    board.play_intersection(Intersection { column: P, row: 13 }, Color::WHITE); // uh oh! opposite color present
-    assert_eq!(board.diamond(&Intersection { column: O, row: 13 }), None); // there is no diamond of a singular color
+    assert_eq!(board.diamond(&Intersection::new(O, 13)), None); // no diamond by default
+    board.play(Move::MOVE(Intersection::new(O, 14), Color::BLACK));
+    assert_eq!(board.diamond(&Intersection::new(O, 13)), None); // diamond not yet constructed
+    board.play(Move::MOVE(Intersection::new(O, 12), Color::BLACK));
+    assert_eq!(board.diamond(&Intersection::new(O, 13)), None); // diamond still not yet constructed
+    board.play(Move::MOVE(Intersection::new(N, 13), Color::BLACK));
+    assert_eq!(board.diamond(&Intersection::new(O, 13)), None); // one more...
+    board.play(Move::MOVE(Intersection::new(P, 13), Color::WHITE)); // uh oh! opposite color present
+    assert_eq!(board.diamond(&Intersection::new(O, 13)), None); // there is no diamond of a singular color
 }
 
 #[test]
@@ -359,7 +338,7 @@ fn test_play() {
     let mut board = Board::new(BoardSize::NINETEEN);
     assert_eq!(board.play(Move::PASS), true);
     assert_eq!(
-        board.play(Move::MOVE(Intersection { column: E, row: 4 }, Color::BLACK)),
+        board.play(Move::MOVE(Intersection::new(E, 4), Color::BLACK)),
         true
     );
     // detailed play move testing done in test_play_intersection() for convenience
@@ -371,57 +350,57 @@ fn test_play_intersection() {
     let mut board = Board::new(BoardSize::NINE); // using BoardSize::NINE for out of bounds intersection tests
     let board_copy = board.deepcopy();
     assert_eq!(
-        board.play_intersection(Intersection { column: E, row: 0 }, Color::BLACK),
+        board.play(Move::MOVE(Intersection::new(E, 0), Color::BLACK)),
         false
     );
     assert_eq!(board, board_copy); // board does not change on a failed play_intersection
     assert_eq!(
-        board.play_intersection(Intersection { column: A, row: 10 }, Color::BLACK),
+        board.play(Move::MOVE(Intersection::new(A, 10), Color::BLACK)),
         false
     ); // too high of row for current BoardSize
     assert_eq!(
-        board.play_intersection(Intersection { column: K, row: 1 }, Color::BLACK),
+        board.play(Move::MOVE(Intersection::new(K, 1), Color::BLACK)),
         false
     ); // too high of column for current BoardSize
     assert_eq!(
-        board.play_intersection(Intersection { column: O, row: 10 }, Color::BLACK),
+        board.play(Move::MOVE(Intersection::new(O, 10), Color::BLACK)),
         false
     ); // both dimensions too high for current BoardSize
 
     assert_eq!(
-        board.play_intersection(Intersection { column: E, row: 4 }, Color::BLACK),
+        board.play(Move::MOVE(Intersection::new(E, 4), Color::BLACK)),
         true
     ); // play regular move
     assert_ne!(board, board_copy); // board does change after successful play_intersection
     assert_eq!(
-        board.play_intersection(Intersection { column: E, row: 4 }, Color::BLACK),
+        board.play(Move::MOVE(Intersection::new(E, 4), Color::BLACK)),
         false
     ); // cannot play on occupied square with same color
     assert_eq!(
-        board.play_intersection(Intersection { column: E, row: 4 }, Color::WHITE),
+        board.play(Move::MOVE(Intersection::new(E, 4), Color::WHITE)),
         false
     ); // cannot play on occupied square with opposite color
 
     // setup moves for Ko
 
-    assert!(board.play_intersection(Intersection { column: F, row: 3 }, Color::BLACK)); // can play multiple moves by same color with no issue
-    board.play_intersection(Intersection { column: G, row: 4 }, Color::BLACK);
-    board.play_intersection(Intersection { column: F, row: 5 }, Color::BLACK);
-    board.play_intersection(Intersection { column: E, row: 5 }, Color::WHITE);
-    board.play_intersection(Intersection { column: F, row: 6 }, Color::WHITE);
+    assert!(board.play(Move::MOVE(Intersection::new(F, 3), Color::BLACK))); // can play multiple moves by same color with no issue
+    board.play(Move::MOVE(Intersection::new(G, 4), Color::BLACK));
+    board.play(Move::MOVE(Intersection::new(F, 5), Color::BLACK));
+    board.play(Move::MOVE(Intersection::new(E, 5), Color::WHITE));
+    board.play(Move::MOVE(Intersection::new(F, 6), Color::WHITE));
     assert_eq!(
-        board.play_intersection(Intersection { column: F, row: 4 }, Color::WHITE),
+        board.play(Move::MOVE(Intersection::new(F, 4), Color::WHITE)),
         false
     ); // cannot play suicidal moves
-    board.play_intersection(Intersection { column: G, row: 5 }, Color::WHITE);
+    board.play(Move::MOVE(Intersection::new(G, 5), Color::WHITE));
 
-    assert!(board.play_intersection(Intersection { column: F, row: 4 }, Color::WHITE)); // capture checks come before suicide
+    assert!(board.play(Move::MOVE(Intersection::new(F, 4), Color::WHITE))); // capture checks come before suicide
     assert_eq!(board.white_captures, 1); // captures are correctly updated
     assert_eq!(
-        board.play_intersection(Intersection { column: F, row: 5 }, Color::BLACK),
+        board.play(Move::MOVE(Intersection::new(F, 5), Color::BLACK)),
         false
     ); // cannot play in Ko
 
-    board.play_intersection(Intersection { column: A, row: 1 }, Color::BLACK);
-    assert!(board.play_intersection(Intersection { column: F, row: 5 }, Color::BLACK)); // ko no longer exists after some other move
+    board.play(Move::MOVE(Intersection::new(A, 1), Color::BLACK));
+    assert!(board.play(Move::MOVE(Intersection::new(F, 5), Color::BLACK))); // ko no longer exists after some other move
 }
