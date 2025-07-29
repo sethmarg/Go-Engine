@@ -381,6 +381,16 @@ impl Color {
             Color::BLACK => Color::WHITE,
         }
     }
+
+    // Attempts to convert the given string into a Color
+    // Returns a Some() with the Color if successful, else returns None
+    pub(crate) fn from_string(string: &str) -> Option<Color> {
+        match string.to_lowercase().as_str() {
+            "b" | "black" => Some(Color::BLACK),
+            "w" | "white" => Some(Color::WHITE),
+            _ => None,
+        }
+    }
 }
 
 /*****************************************************\

@@ -292,6 +292,24 @@ fn test_intersection_from_string() {
 }
 
 #[test]
+fn test_color_from_string() {
+    // Base cases:
+    assert_eq!(Color::from_string("B"), Some(Color::BLACK)); 
+    assert_eq!(Color::from_string("W"), Some(Color::WHITE));
+    assert_eq!(Color::from_string("BLACK"), Some(Color::BLACK));
+    assert_eq!(Color::from_string("WHITE"), Some(Color::WHITE));
+    
+    // case doesn't matter
+    assert_eq!(Color::from_string("b"), Some(Color::BLACK));
+    assert_eq!(Color::from_string("WhITe"), Some(Color::WHITE));
+    
+    // other strings return None
+    assert_eq!(Color::from_string("A"), None);
+    assert_eq!(Color::from_string(""), None);
+    assert_eq!(Color::from_string("SOME random STUFF ahfdiuaf"), None);
+}
+
+#[test]
 fn test_opposite_color() {
     assert_eq!(Color::WHITE.opposite_color(), Color::BLACK);
     assert_eq!(Color::BLACK.opposite_color(), Color::WHITE);
