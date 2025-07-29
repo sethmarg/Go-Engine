@@ -43,7 +43,7 @@ pub(crate) struct Board {
     position: Vec<State>,
     side: Color,
     ko: Option<Intersection>,
-    //komi: f32, TODO: UNCOMMENT
+    pub(crate) komi: f32,
     last_move: Move,
     pub(crate) white_captures: u16,
     pub(crate) black_captures: u16,
@@ -91,7 +91,7 @@ impl Board {
             position: Board::empty_board(numeric_size),
             side: Color::BLACK,
             ko: None,
-            //komi: 6.5, // TODO: uncomment
+            komi: 6.5,
             last_move: Move::PASS,
             white_captures: 0,
             black_captures: 0,
@@ -127,7 +127,7 @@ impl Board {
             position: position_copy,
             side: self.side.clone(),
             ko: self.ko.clone(),
-            // komi: self.komi.clone(),
+            komi: self.komi.clone(),
             last_move: self.last_move.clone(),
             white_captures: self.white_captures,
             black_captures: self.black_captures,
@@ -153,10 +153,7 @@ impl Debug for Board {
 impl Intersection {
     // Creates a new Intersection with the given column and row
     pub(crate) fn new(column: ColumnIdentifier, row: u16) -> Intersection {
-        Intersection {
-            column,
-            row,
-        }
+        Intersection { column, row }
     }
 }
 
@@ -227,6 +224,32 @@ impl ColumnIdentifier {
             16 => Some(R),
             17 => Some(S),
             18 => Some(T),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn from_string(string: &str) -> Option<ColumnIdentifier> {
+        use ColumnIdentifier::*;
+        match string.to_uppercase().as_str() {
+            "A" => Some(A),
+            "B" => Some(B),
+            "C" => Some(C),
+            "D" => Some(D),
+            "E" => Some(E),
+            "F" => Some(F),
+            "G" => Some(G),
+            "H" => Some(H),
+            "J" => Some(J),
+            "K" => Some(K),
+            "L" => Some(L),
+            "M" => Some(M),
+            "N" => Some(N),
+            "O" => Some(O),
+            "P" => Some(P),
+            "Q" => Some(Q),
+            "R" => Some(R),
+            "S" => Some(S),
+            "T" => Some(T),
             _ => None,
         }
     }
@@ -304,7 +327,10 @@ impl Intersection {
         }
     }
 
-    pub(crate) fn from_position_index(position_index: u16, size: &BoardSize) -> Option<Intersection> {
+    pub(crate) fn from_position_index(
+        position_index: u16,
+        size: &BoardSize,
+    ) -> Option<Intersection> {
         let position_length = size.to_u16() + 2;
 
         if position_index >= position_length * position_length {
@@ -321,6 +347,28 @@ impl Intersection {
         Some(Intersection {
             column: ColumnIdentifier::from_u16(col - 1).unwrap(),
             row: position_length - row - 1,
+        })
+    }
+
+    pub(crate) fn from_string(string: &str) -> Option<Intersection> {
+        if string.len() < 2 {
+            return None;
+        }
+
+        let col = &string[0..1];
+        let row = &string[1..];
+
+        if ColumnIdentifier::from_string(col).is_none() {
+            return None;
+        }
+
+        if row.parse::<u16>().is_err() {
+            return None;
+        }
+
+        Some(Intersection {
+            column: ColumnIdentifier::from_string(col).unwrap(),
+            row: row.parse().unwrap(),
         })
     }
 }
@@ -526,7 +574,7 @@ impl Board {
                                 surrounding_intsc_index as u16,
                                 &self.size,
                             )
-                                .unwrap();
+                            .unwrap();
                             if let Some(surrounding_color) = self.diamond(&intsc) {
                                 if surrounding_color != color {
                                     new_ko = Some(surrounding_intsc);

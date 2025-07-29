@@ -72,6 +72,31 @@ fn test_column_identifier_from_u16() {
 }
 
 #[test]
+fn test_column_identifier_from_string() {
+    use ColumnIdentifier::*;
+    assert_eq!(ColumnIdentifier::from_string("a"), Some(A)); // lowercase doesnt matter
+    assert_eq!(ColumnIdentifier::from_string("A"), Some(A));
+    assert_eq!(ColumnIdentifier::from_string("B"), Some(B));
+    assert_eq!(ColumnIdentifier::from_string("C"), Some(C));
+    assert_eq!(ColumnIdentifier::from_string("D"), Some(D));
+    assert_eq!(ColumnIdentifier::from_string("E"), Some(E));
+    assert_eq!(ColumnIdentifier::from_string("F"), Some(F));
+    assert_eq!(ColumnIdentifier::from_string("G"), Some(G));
+    assert_eq!(ColumnIdentifier::from_string("H"), Some(H));
+    assert_eq!(ColumnIdentifier::from_string("J"), Some(J));
+    assert_eq!(ColumnIdentifier::from_string("K"), Some(K));
+    assert_eq!(ColumnIdentifier::from_string("L"), Some(L));
+    assert_eq!(ColumnIdentifier::from_string("M"), Some(M));
+    assert_eq!(ColumnIdentifier::from_string("N"), Some(N));
+    assert_eq!(ColumnIdentifier::from_string("O"), Some(O));
+    assert_eq!(ColumnIdentifier::from_string("P"), Some(P));
+    assert_eq!(ColumnIdentifier::from_string("Q"), Some(Q));
+    assert_eq!(ColumnIdentifier::from_string("R"), Some(R));
+    assert_eq!(ColumnIdentifier::from_string("S"), Some(S));
+    assert_eq!(ColumnIdentifier::from_string("T"), Some(T));
+}
+
+#[test]
 fn test_column_identifier_to_u16() {
     use ColumnIdentifier::*;
     assert_eq!(A.to_u16(), 0);
@@ -228,6 +253,45 @@ fn test_intersection_from_position_index() {
 }
 
 #[test]
+fn test_intersection_from_string() {
+    use ColumnIdentifier::*;
+    assert_eq!(
+        Intersection::from_string("Q16"),
+        Some(Intersection::new(Q, 16))
+    ); // baseline test
+    
+    assert_eq!(
+        Intersection::from_string("A10000"),
+        Some(Intersection::new(A, 10000))
+    ); // does not matter how large row is (logic is it'll get caught by error checks when playing)
+
+    assert_eq!(
+        Intersection::from_string("D65536"),
+        None
+    ); // row does need to be within u16 however
+
+    assert_eq!(
+        Intersection::from_string("C0"),
+        Some(Intersection::new(C, 0))
+    ); // 0 is also allowed as a row
+
+    assert_eq!(
+        Intersection::from_string("F"),
+        None
+    ); // no row
+
+    assert_eq!(
+        Intersection::from_string("12"),
+        None
+    ); // no valid column identifier
+
+    assert_eq!(
+        Intersection::from_string("Some random string"),
+        None
+    ); // some random string doesnt work
+}
+
+#[test]
 fn test_opposite_color() {
     assert_eq!(Color::WHITE.opposite_color(), Color::BLACK);
     assert_eq!(Color::BLACK.opposite_color(), Color::WHITE);
@@ -241,8 +305,8 @@ fn test_opposite_color() {
 
 #[test]
 fn test_count() {
-    use std::collections::HashSet;
     use ColumnIdentifier::*;
+    use std::collections::HashSet;
     let mut expected_group: HashSet<Intersection> = HashSet::new();
     let mut expected_liberties: HashSet<Intersection> = HashSet::new();
     let mut board = Board::new(BoardSize::NINETEEN);

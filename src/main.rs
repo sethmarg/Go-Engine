@@ -1,6 +1,6 @@
-mod tests;
 mod board;
 mod gtp;
+mod tests;
 
 use board::*;
 /****************************************************\
@@ -24,9 +24,7 @@ fn debug() {
     //     State::OCCUPIED(Color::WHITE);
     print!("{}", b.render());
     let (group, liberties) = b.count(
-        Intersection::new(B, 2)
-            .to_position_index(&b.size)
-            .unwrap() as usize,
+        Intersection::new(B, 2).to_position_index(&b.size).unwrap() as usize,
         Color::WHITE,
     );
     println!("Group: {:#?}", group);
@@ -34,18 +32,22 @@ fn debug() {
 }
 
 fn main() {
-    use std::env;
     use gtp::GTP;
+    use std::env;
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         panic!("Run mode not given");
     }
-    
+
     if args[1].eq_ignore_ascii_case("debug") {
         debug();
     } else if args[1].eq_ignore_ascii_case("gtp") {
-        GTP::start().expect("Something went wrong during GTP loop");
+        let gtp: GTP = GTP::new();
+        gtp.start().expect("Something went wrong during GTP loop");
     } else {
-        panic!("Invalid run mode given: {}\n Run mode must be debug or gtp", args[1]);
+        panic!(
+            "Invalid run mode given: {}\n Run mode must be debug or gtp",
+            args[1]
+        );
     }
 }
