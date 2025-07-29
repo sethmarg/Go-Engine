@@ -236,13 +236,22 @@ impl GTP {
         self.board = Board::new(self.board.size);
         GtpResponse::SUCCESS(String::new())
     }
-
-    // TODO: IMPLEMENT
+    
     // args[0] = new decimal komi value 
     // Sets the komi of the current game to the given value
     // Returns an empty response unless an error occurs
     fn komi(&mut self, args: &[&str]) -> GtpResponse {
-        GtpResponse::DEBUG("".to_string(), "to be implemented".to_string())
+        if args.len() < 1 {
+            return GtpResponse::ERROR("Komi value argument not given to command".to_string());
+        }
+        
+        let komi_value = args[0].parse::<f32>();
+        if komi_value.is_err() {
+            return GtpResponse::ERROR(format!("Invalid komi argument given: {}", args[0]));
+        }
+        
+        self.board.komi = komi_value.unwrap();
+        GtpResponse::SUCCESS(String::new())
     }
 
     // TODO: IMPLEMENT
