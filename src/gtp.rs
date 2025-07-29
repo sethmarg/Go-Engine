@@ -253,14 +253,28 @@ impl GTP {
         self.board.komi = komi_value.unwrap();
         GtpResponse::SUCCESS(String::new())
     }
-
-    // TODO: IMPLEMENT
+    
     // args[0] = Color ("B", "W"), args[1] = intersection to play at in Go Notation (ex. "Q16")
     // Attempts to play a stone for the given color at the given intersection
     // If successful, returns an empty successful response
     // Else, returns an error response "Invalid move"
     fn play(&mut self, args: &[&str]) -> GtpResponse {
-        GtpResponse::DEBUG("".to_string(), "to be implemented".to_string())
+        if args.len() < 2 {
+            return GtpResponse::ERROR("Not enough arguments given to play command".to_string());
+        }
+        
+        let color = Color::from_string(args[0]);
+        let intersection = Intersection::from_string(args[1]);
+        
+        if color.is_none() || intersection.is_none() {
+            return GtpResponse::ERROR("syntax error".to_string()); // GTP required error message
+        }
+        
+        if !self.board.play(Move::MOVE(intersection.unwrap(), color.unwrap())) {
+            return GtpResponse::ERROR("invalid move".to_string()); // GTP required error message
+        }
+        
+        GtpResponse::SUCCESS(String::new())
     }
 
     // TODO: IMPLEMENT
