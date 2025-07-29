@@ -8,6 +8,7 @@ use strum_macros::EnumIter;
 |****************    GLOBAL TYPES    ****************|
 \****************************************************/
 
+// Go Text Protocol instance
 pub(crate) struct GTP {
     board: Board,
 }
@@ -16,12 +17,15 @@ pub(crate) struct GTP {
 |****************    PRIVATE TYPES    ****************|
 \*****************************************************/
 
+// Enumerates all response types of the Go Text Protocol
+// and handles sending them to the Protocol
 enum GtpResponse {
     SUCCESS(String),
     ERROR(String),
     DEBUG(String, String), // response to protocol, debug message
 }
 
+// Enumerates all command types accepted from the Go Text Protocol
 #[derive(EnumIter)]
 enum GtpCommands {
     PROTOCOL_VERSION,
@@ -43,6 +47,7 @@ enum GtpCommands {
 \****************************************************/
 
 impl fmt::Display for GtpCommands {
+    // Implements to_string() for GtpCommands
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         use GtpCommands::*;
         write!(
@@ -67,6 +72,8 @@ impl fmt::Display for GtpCommands {
 }
 
 impl GtpCommands {
+    // Converts the given &str to its associated GtpCommand
+    // Returned as an Option in case an invalid string is given
     fn from_string(command: &str) -> Option<GtpCommands> {
         use GtpCommands::*;
         match command {
@@ -97,7 +104,7 @@ impl GtpResponse {
         match self {
             GtpResponse::SUCCESS(result) => print!("= {}", Self::format_gtp_string(result)),
             GtpResponse::ERROR(result) => print!("? {}", Self::format_gtp_string(result)),
-            GtpResponse::DEBUG(protocol_message, debug_message) => { 
+            GtpResponse::DEBUG(protocol_message, debug_message) => {
                 eprint!("{}", Self::format_gtp_string(debug_message));
                 print!("= {}", Self::format_gtp_string(protocol_message));
             },
@@ -115,6 +122,7 @@ impl GtpResponse {
 }
 
 impl GTP {
+    // Creates a new instance of the Go Text Protocol
     pub(crate) fn new() -> GTP {
         GTP {
             board: Board::new(BoardSize::NINETEEN),
@@ -137,6 +145,9 @@ impl GTP {
         Ok(())
     }
 
+    // Handles input arguments given from the Go Text Protocol
+    // and sends them to their respective command function
+    // Returns true if the Protocol should remain open, else false.
     fn gtp_commands(&mut self, args: &[&str]) -> bool {
         use GtpCommands::*;
         if let Some(command) = GtpCommands::from_string(args[0]) {
@@ -160,17 +171,24 @@ impl GTP {
         true
     }
 
+    // Returns the Go Text Protocol version this program conforms to
     fn protocol_version(&self) -> GtpResponse {
         GtpResponse::SUCCESS("2".to_string())
     }
 
+    // Returns the name of this Go Engine
     fn name(&self) -> GtpResponse {
         GtpResponse::SUCCESS("TBD".to_string())
     }
 
+    // Returns the version of this Go Engine
     fn version(&self) -> GtpResponse {
         GtpResponse::SUCCESS("0".to_string())
     }
+
+    // args[0] = command name to check
+    // Checks if the given command name is a command this engine supports
+    // Gives a GtpResponse containing true if the command is known, false otherwise
     fn known_command(&self, args: &[&str]) -> GtpResponse {
         if args.len() < 1 {
             GtpResponse::ERROR("No command argument given".to_string())
@@ -179,6 +197,7 @@ impl GTP {
         }
     }
 
+    // Lists all commands supported by this Go Engine
     fn list_commands(&self) -> GtpResponse {
         let mut command_list = String::from("");
         for command_name in GtpCommands::iter() {
@@ -187,6 +206,10 @@ impl GTP {
         GtpResponse::SUCCESS(command_list)
     }
 
+    // args[0] = new board size
+    // If given a valid BoardSize, clears the current board
+    // and sets its board size to the given size
+    // Returns an empty response unless an error occurs
     fn boardsize(&mut self, args: &[&str]) -> GtpResponse {
         if args.len() > 0 {
             if let Ok(num) = args[0].parse::<u16>() {
@@ -207,23 +230,40 @@ impl GTP {
         }
     }
 
+    // Resets the board to an empty state
+    // Returns an empty response
     fn clear_board(&mut self) -> GtpResponse {
         self.board = Board::new(self.board.size);
         GtpResponse::SUCCESS(String::new())
     }
 
+    // TODO: IMPLEMENT
+    // args[0] = new decimal komi value 
+    // Sets the komi of the current game to the given value
+    // Returns an empty response unless an error occurs
     fn komi(&mut self, args: &[&str]) -> GtpResponse {
         GtpResponse::DEBUG("".to_string(), "to be implemented".to_string())
     }
 
+    // TODO: IMPLEMENT
+    // args[0] = Color ("B", "W"), args[1] = intersection to play at in Go Notation (ex. "Q16")
+    // Attempts to play a stone for the given color at the given intersection
+    // If successful, returns an empty successful response
+    // Else, returns an error response "Invalid move"
     fn play(&mut self, args: &[&str]) -> GtpResponse {
         GtpResponse::DEBUG("".to_string(), "to be implemented".to_string())
     }
 
+    // TODO: IMPLEMENT
+    // args[0] = Color ("B", "W")
+    // Attempts to generate an engine move for the given color in the current Board position
+    // Outputs the intersection to play at in Go Notation, "pass" if the engine wishes to pass,
+    // or "resign" if the engine is resigning
     fn genmove(&self, args: &[&str]) -> GtpResponse {
         GtpResponse::DEBUG("".to_string(), "to be implemented".to_string())
     }
-    
+
+    // Returns a successful GtpResponse containing a rendering of the current Board position
     fn showboard(&self) -> GtpResponse {
         GtpResponse::SUCCESS(self.board.render())
     }
