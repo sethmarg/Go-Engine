@@ -228,6 +228,8 @@ impl ColumnIdentifier {
         }
     }
 
+    // Attempts to convert the given string into a ColumnIdentifier
+    // Returns a Some() with the identifier if successful, else returns None
     pub(crate) fn from_string(string: &str) -> Option<ColumnIdentifier> {
         use ColumnIdentifier::*;
         match string.to_uppercase().as_str() {
@@ -314,7 +316,6 @@ impl fmt::Display for ColumnIdentifier {
 
 impl Intersection {
     // Converts this Intersection into its index in a position vector on the given BoardSize Board
-    // TODO: TESTS!!!
     pub(crate) fn to_position_index(&self, size: &BoardSize) -> Option<u16> {
         let position_length = size.to_u16() + 2;
         let column_index = self.column.to_u16();
@@ -327,6 +328,8 @@ impl Intersection {
         }
     }
 
+    // Given a position index on a Board, returns the Intersection that correlates to the
+    // index if valid for the given BoardSize. Else, returns None
     pub(crate) fn from_position_index(
         position_index: u16,
         size: &BoardSize,
@@ -350,6 +353,10 @@ impl Intersection {
         })
     }
 
+    // Attempts to convert the given string into an Intersection
+    // Returns a Some() with the Intersection if successful, else returns None
+    // (This method is successful if the format of the String is correct,
+    // even if the Intersection returned is ridiculous)
     pub(crate) fn from_string(string: &str) -> Option<Intersection> {
         if string.len() < 2 {
             return None;
