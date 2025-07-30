@@ -431,7 +431,23 @@ impl fmt::Display for Board {
         for col in 1..position_length as u16 - 1 {
             render = format!("{render} {}", ColumnIdentifier::from_u16(col - 1).unwrap());
         }
-        render + "\n"
+        render = format!("{render}\nKomi:     {}", self.komi);
+        render = format!("{render}\nKo:       {}", match self.ko {
+            Some(intersection) => intersection.to_string(),
+            None => "None".to_string(),
+        });
+        render = format!(
+            "{render}\nCaptures: [B: {}, W: {}]",
+            self.black_captures, self.white_captures
+        );
+        
+        write!(f, "{render}\n")
+    }
+}
+
+impl fmt::Display for Intersection {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}{}", self.column.to_string(), self.row)
     }
 }
 
