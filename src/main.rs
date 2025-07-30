@@ -22,7 +22,7 @@ fn debug() {
     //     State::OCCUPIED(Color::WHITE);
     // b.position[Intersection { column: C, row: 3 }.to_position_index(&b.size) as usize] =
     //     State::OCCUPIED(Color::WHITE);
-    print!("{}", b.render());
+    print!("{}", b.to_string());
     let (group, liberties) = b.count(
         Intersection::new(B, 2).to_position_index(&b.size).unwrap() as usize,
         Color::WHITE,

@@ -288,6 +288,6 @@ impl GTP {
 
     // Returns a successful GtpResponse containing a rendering of the current Board position
     fn showboard(&self) -> GtpResponse {
-        GtpResponse::SUCCESS(self.board.render())
+        GtpResponse::SUCCESS(self.board.to_string())
     }
 }

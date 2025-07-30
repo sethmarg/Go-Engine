@@ -404,10 +404,9 @@ impl Color {
 |****************      RENDERING      ****************|
 \*****************************************************/
 
-impl Board {
-    // Returns a String representing a rendering of the current Board
+impl fmt::Display for Board {
     // TODO: MESSY CODE PLEASE FIX AND MAKE MORE READABLE
-    pub(crate) fn render(&self) -> String {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut render: String = String::from("");
         let position_length = (self.size.to_u16() + 2) as usize;
         for row in 1..position_length - 1 {
