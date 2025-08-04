@@ -1,6 +1,7 @@
 mod board;
 mod gtp;
 mod tests;
+mod engine;
 
 use board::*;
 /****************************************************\
