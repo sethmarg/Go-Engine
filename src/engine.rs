@@ -1,5 +1,9 @@
 use super::*;
 
+/******************************************************\
+|****************    PRIVATE TYPES     ****************|
+\******************************************************/
+
 // Monte Carlo Tree Search Nodes
 struct MCTSNode {
     parent: Option<Box<MCTSNode>>,
@@ -7,10 +11,13 @@ struct MCTSNode {
     children: Vec<MCTSNode>,
     total_visits: u16,
     winning_visits: u16,
-    score: f32,
+    score: f64,
 }
 
-// Helper functions
+/******************************************************\
+|****************        HELPER        ****************|
+\******************************************************/
+
 impl MCTSNode {
     // Scores Monte Carlo Tree nodes using the Upper Confidence for Trees formula
     fn uct_score(&self, parent: &MCTSNode) -> f64 {
@@ -22,8 +29,10 @@ impl MCTSNode {
         node_wins / node_visits + uct_constant * f64::sqrt(f64::ln(parent_visits) / node_visits)
     }
 }
+/*******************************************************\
+|****************      TREE SEARCH      ****************|
+\*******************************************************/
 
-// Monte Carlo Tree Search phases
 impl MCTSNode {
     // Selects the next node in the Monte Carlo Tree to search
     fn selection(&self) -> &MCTSNode {
