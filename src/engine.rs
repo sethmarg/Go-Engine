@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use super::*;
 
 // Monte Carlo Tree Search Nodes
@@ -11,20 +10,48 @@ struct MCTSNode {
     score: f32,
 }
 
+// Helper functions
+impl MCTSNode {
+    // Scores Monte Carlo Tree nodes using the Upper Confidence for Trees formula
+    fn uct_score(&self, parent: &MCTSNode) -> f64 {
+        let node_wins = self.winning_visits as f64;
+        let node_visits = self.total_visits as f64;
+        let parent_visits = parent.total_visits as f64;
+        let uct_constant = f64::sqrt(2.0);
+
+        node_wins / node_visits + uct_constant * f64::sqrt(f64::ln(parent_visits) / node_visits)
+    }
+}
+
 // Monte Carlo Tree Search phases
 impl MCTSNode {
-    fn selection(&self) -> MCTSNode {
-        todo!();
+    // Selects the next node in the Monte Carlo Tree to search
+    fn selection(&self) -> &MCTSNode {
+        let mut best_node = self;
+        let mut best_score = 0.0;
+        for child in &self.children {
+            let child_score = child.uct_score(self);
+            if child_score > best_score {
+                best_node = child;
+                best_score = child_score;
+            }
+        }
+        
+        best_node
     }
 
+    // Expands this Monte Carlo Tree Node by adding nodes to its children field
+    // where a potential move has been played
     fn expansion(&self) {
         todo!();
     }
 
+    // Simulates the result of a game played on the board this node represents
     fn simulation(&self) {
         todo!();
     }
 
+    // Traverses up the tree from this node and updates wins accordingly
     fn backpropagation(&self) {
         todo!();
     }
@@ -47,7 +74,7 @@ pub(crate) fn generate_move(position: Board, iterations: u16) -> Move {
         node.expansion();
         node.simulation();
         node.backpropagation();
-    };
+    }
 
     if root.children.len() == 0 {
         Move::PASS
