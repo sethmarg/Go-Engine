@@ -43,7 +43,7 @@ pub(crate) struct Board {
     position: Vec<State>,
     side: Color,
     ko: Option<Intersection>,
-    pub(crate) komi: f32,
+    pub(crate) komi: f64,
     last_move: Move,
     pub(crate) white_captures: u16,
     pub(crate) black_captures: u16,

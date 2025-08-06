@@ -245,7 +245,7 @@ impl GTP {
             return GtpResponse::ERROR("Komi value argument not given to command".to_string());
         }
         
-        let komi_value = args[0].parse::<f32>();
+        let komi_value = args[0].parse::<f64>();
         if komi_value.is_err() {
             return GtpResponse::ERROR(format!("Invalid komi argument given: {}", args[0]));
         }
