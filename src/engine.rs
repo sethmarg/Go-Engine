@@ -14,7 +14,6 @@ struct MCTSTree {
 struct MCTSNode {
     state: Board,
     played_last_move: Color,
-    last_move: Option<Move>,
     parent: Option<Index>,
     children: Vec<Index>,
     total_visits: u16,
@@ -28,11 +27,10 @@ struct MCTSNode {
 
 impl MCTSNode {
     // Creates a new MCTSNode with the given parameters, and setting the others to their default value
-    fn new(state: Board, played_last_move: Color, last_move: Option<Move>) -> MCTSNode {
+    fn new(state: Board, played_last_move: Color) -> MCTSNode {
         MCTSNode {
             state,
             played_last_move,
-            last_move,
             parent: None,
             children: vec![],
             total_visits: 0,
@@ -48,14 +46,13 @@ impl PartialEq for MCTSNode {
     fn eq(&self, other: &Self) -> bool {
         self.state == other.state
             && self.played_last_move == other.played_last_move
-            && self.last_move == other.last_move
     }
 }
 
 impl MCTSTree {
     // Creates a new MCTSTree and
     fn new(initial_state: Board, player_to_generate: Color) -> MCTSTree {
-        let root = MCTSNode::new(initial_state, player_to_generate, None);
+        let root = MCTSNode::new(initial_state, player_to_generate);
         let mut arena: Arena<MCTSNode> = Arena::new();
         let root_index = arena.insert(root);
         MCTSTree { root_index, arena }
@@ -65,8 +62,8 @@ impl MCTSTree {
 impl MCTSTree {
     // Creates a new node in this MCTSTree from the given parameters and returns its Index.
     // If a node of these parameters already exists, returns its Index
-    fn node(&mut self, state: Board, played_last_move: Color, last_move: Option<Move>) -> Index {
-        let new_node = MCTSNode::new(state, played_last_move, last_move);
+    fn node(&mut self, state: Board, played_last_move: Color) -> Index {
+        let new_node = MCTSNode::new(state, played_last_move);
         for (index, node) in &self.arena {
             if *node == new_node {
                 return index;
