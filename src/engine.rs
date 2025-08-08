@@ -94,6 +94,13 @@ impl MCTSTree {
     fn root(&self) -> &MCTSNode {
         self.arena.get(self.root_index).unwrap()
     }
+    
+    fn set_child(&mut self, parent_index: Index, child_index: Index) {
+        if self.arena.contains(parent_index) && self.arena.contains(child_index) {
+            let parent = self.arena.get_mut(parent_index).unwrap();
+            parent.children.push(child_index);
+        }
+    }
 }
 
 /*******************************************************\
