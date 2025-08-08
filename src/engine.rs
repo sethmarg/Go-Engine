@@ -105,7 +105,25 @@ impl MCTSTree {
 
 impl MCTSTree {
     fn selection(&self) -> Index {
-        todo!()
+        let mut best_node = self.root();
+        let mut best_index = self.root_index;
+        let mut best_score = 0.0;
+        while best_node.children.len() > 0 {
+            let mut best_child_index = best_index;
+            for child_idx in &best_node.children {
+                // todo: not sure if below is fine to let panic
+                let child = self.arena.get(*child_idx).unwrap();
+                let child_score = child.uct_score(best_node);
+                if child_score > best_score {
+                    best_child_index = *child_idx;
+                    best_score = child_score;
+                }
+            }
+            best_index = best_child_index;
+            // todo: same as above
+            best_node = self.arena.get(best_child_index).unwrap();
+        }
+        best_index
     }
     
     fn expansion(&mut self, node_index: Index) {
