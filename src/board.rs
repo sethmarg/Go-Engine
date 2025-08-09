@@ -44,7 +44,7 @@ pub(crate) struct Board {
     side: Color,
     ko: Option<Intersection>,
     pub(crate) komi: f64,
-    last_move: Move,
+    pub(crate) last_move: Move,
     pub(crate) white_captures: u16,
     pub(crate) black_captures: u16,
 }
