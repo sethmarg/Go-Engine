@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
-
+use rand::Rng;
 /****************************************************\
 |****************    GLOBAL TYPES    ****************|
 \****************************************************/
@@ -432,15 +432,18 @@ impl fmt::Display for Board {
             render = format!("{render} {}", ColumnIdentifier::from_u16(col - 1).unwrap());
         }
         render = format!("{render}\nKomi:     {}", self.komi);
-        render = format!("{render}\nKo:       {}", match self.ko {
-            Some(intersection) => intersection.to_string(),
-            None => "None".to_string(),
-        });
+        render = format!(
+            "{render}\nKo:       {}",
+            match self.ko {
+                Some(intersection) => intersection.to_string(),
+                None => "None".to_string(),
+            }
+        );
         render = format!(
             "{render}\nCaptures: [B: {}, W: {}]",
             self.black_captures, self.white_captures
         );
-        
+
         write!(f, "{render}\n")
     }
 }
@@ -633,5 +636,132 @@ impl Board {
             return true;
         };
         false
+    }
+}
+
+/*******************************************************\
+|****************        SCORING        ****************|
+\*******************************************************/
+
+impl Board {
+    // Estimates the score at the end of the Go game on this Board
+    pub(crate) fn estimate_score(&self) -> f64 {
+        // todo: implement tromp-taylor scoring
+        let mut stones: Vec<i16> = vec!(0, 0);
+
+        for row in 0..self.size.to_u16() {
+            for col in 0..self.size.to_u16() {
+                let intsc = Intersection::new(ColumnIdentifier::from_u16(col).unwrap(), row + 1);
+                let intsc_index = intsc.to_position_index(&self.size).unwrap() as usize;
+
+                let color = {
+                    if self.position[intsc_index] == State::EMPTY {
+                        let diamond = self.diamond(&intsc);
+                        if diamond.is_some() {
+                            diamond.unwrap()
+                        } else {
+                            let random_num = rand::thread_rng().gen_range(0..2);
+                            if random_num == 0 {
+                                Color::WHITE
+                            } else {
+                                Color::BLACK
+                            }
+                        }
+                    } else {
+                        if let State::OCCUPIED(color) = self.position[intsc_index] {
+                            color
+                        } else {
+                            panic!("How is offboard in the main board");
+                        }
+                    }
+                };
+
+                match color {
+                    Color::WHITE => stones[0] += 1,
+                    Color::BLACK => stones[1] += 1,
+                }
+            }
+        }
+
+        (stones[1] - stones[0]) as f64 - self.komi
+    }
+}
+
+/*******************************************************\
+|****************  PLAYOUT (TEMPORARY)  ****************|
+\*******************************************************/
+
+impl Board {
+    // Finds the weakest group on the board, and returns its liberties
+    // todo: TEMP METHOD, perhaps add better logic
+    pub(crate) fn weakest_group(&self, color: &Color) -> Vec<Intersection> {
+        let mut liberties: Vec<Intersection> = vec![];
+        let mut smallest_size: usize = 1000; // actually needed for when liberties is empty as init
+        let mut intsc_seen: HashSet<Intersection> = HashSet::new();
+
+        for index in 0..self.position.len() {
+            if self.position[index] == State::OCCUPIED(*color) {
+                let intsc = Intersection::from_position_index(index as u16, &self.size).unwrap();
+                if !intsc_seen.contains(&intsc) {
+                    let (group, group_libs) = self.count(index, *color);
+
+                    for group_intsc in group {
+                        intsc_seen.insert(group_intsc);
+                    }
+
+                    if group_libs.len() < smallest_size {
+                        smallest_size = group_libs.len();
+                        liberties = group_libs.into_iter().collect();
+                    }
+                }
+            }
+        }
+
+        liberties
+    }
+
+    // Returns a random intersection found on this Board
+    // todo: TEMP METHOD
+    pub(crate) fn random_intersection(&self, offset: u16) -> Intersection {
+        use rand::Rng;
+        let mut moves: Vec<Intersection> = vec![];
+        for row in 1 + offset..self.size.to_u16() - offset {
+            for col in 1 + offset..self.size.to_u16() - offset {
+                let col_iden = ColumnIdentifier::from_u16(col).unwrap();
+                moves.push(Intersection::new(col_iden, row));
+            }
+        }
+
+        let ind = rand::thread_rng().gen_range(0..moves.len());
+        moves[ind]
+    }
+
+    // Ensures playing a stone at this position is not suicide
+    // todo: TEMP METHOD AND ITS ALSO REALLY BAD
+    pub(crate) fn not_suicide(&self, intsc: &Intersection) -> bool {
+        if let Some(position_index) = intsc.to_position_index(&self.size) {
+            let mut liberties = 0;
+            let numeric_size = self.size.to_u16() as i16;
+            for dir in [1, -1, numeric_size, -numeric_size] {
+                let neighbor = add_to_usize(position_index as usize, dir);
+                if neighbor.is_some() && self.position[neighbor.unwrap()] == State::EMPTY {
+                    liberties += 1;
+                }
+            }
+
+            self.position[position_index as usize] == State::EMPTY
+                && liberties > 0
+                && Some(intsc) != self.ko.as_ref()
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn can_place_stone_at(&self, intsc: &Intersection) -> bool {
+        if let Some(position_index) = intsc.to_position_index(&self.size) {
+            self.position[position_index as usize] == State::EMPTY && self.not_suicide(intsc)
+        } else {
+            false
+        }
     }
 }
