@@ -154,9 +154,34 @@ impl MCTSTree {
             }
         }
     }
-    
-    fn simulation(&mut self, node_index: Index) {
-        todo!()
+
+    fn simulation(&mut self, node_index: Index) -> f64 {
+        // todo: placeholder logic, replace with tromp-taylor scoring, forfeit cutoffs to reduce moves played, etc.
+        if self.arena.contains(node_index) {
+            let end_state = {
+                let mut cur_index = node_index;
+                for _ in 0..1500 {
+                    let cur_node = self.arena.get(node_index).unwrap();
+                    let mut cur_state = cur_node.state.deepcopy();
+                    let player = cur_node.played_last_move.opposite_color();
+                    let mov = cur_node.generate_playout_move(player);
+                    
+                    if mov == Move::PASS {
+                        continue; // kind of want to end playout after two passes but whatever
+                    } else {
+                        if cur_state.play(mov) {
+                            let next_node_index = self.node(cur_state, player);
+                            self.set_child(cur_index, next_node_index);
+                            cur_index = next_node_index;
+                        }
+                    }
+                }
+                &self.arena.get(cur_index).unwrap().state
+            };
+            
+            return end_state.estimate_score()
+        }
+        panic!("Node index does not exist in the MCTS Tree");
     }
     
     fn backpropagation(&mut self, node_index: Index) {
