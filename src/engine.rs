@@ -44,8 +44,7 @@ impl PartialEq for MCTSNode {
     // Custom equality function that only checks board state fields,
     // does not check any Monte Carlo related fields
     fn eq(&self, other: &Self) -> bool {
-        self.state == other.state
-            && self.played_last_move == other.played_last_move
+        self.state == other.state && self.played_last_move == other.played_last_move
     }
 }
 
@@ -115,23 +114,45 @@ impl MCTSTree {
         while best_node.children.len() > 0 {
             let mut best_child_index = best_index;
             for child_idx in &best_node.children {
-                // todo: not sure if below is fine to let panic
-                let child = self.arena.get(*child_idx).unwrap();
-                let child_score = child.uct_score(best_node);
-                if child_score > best_score {
-                    best_child_index = *child_idx;
-                    best_score = child_score;
+                if self.arena.contains(*child_idx) {
+                    let child = self.arena.get(*child_idx).unwrap();
+                    let child_score = child.uct_score(best_node);
+                    if child_score > best_score {
+                        best_child_index = *child_idx;
+                        best_score = child_score;
+                    }
+                } else {
+                    panic!("Node index does not exist in the MCTS Tree");
                 }
             }
             best_index = best_child_index;
-            // todo: same as above
+            // this one is definitely safe tho
             best_node = self.arena.get(best_child_index).unwrap();
         }
         best_index
     }
-    
+
     fn expansion(&mut self, node_index: Index) {
-        todo!()
+        if self.arena.contains(node_index) {
+            let (child_player, candidate_moves, current_state) = {
+                let node = self.arena.get(node_index).unwrap();
+                if node.is_game_over() {
+                    return; // maybe should panic?
+                }
+                let child_player = node.played_last_move.opposite_color();
+                let candidate_moves = node.generate_candidate_moves();
+                let current_state = node.state.deepcopy();
+                (child_player, candidate_moves, current_state)
+            };
+
+            for candidate in candidate_moves {
+                let mut child_state = current_state.deepcopy();
+                if child_state.play(Move::MOVE(candidate, child_player)) {
+                    let child_idx = self.node(child_state, child_player);
+                    self.set_child(node_index, child_idx);
+                }
+            }
+        }
     }
     
     fn simulation(&mut self, node_index: Index) {
