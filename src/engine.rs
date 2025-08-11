@@ -19,6 +19,7 @@ struct MCTSNode {
     total_visits: u16,
     winning_visits: u16,
     score: f64,
+    simulated: bool
 }
 
 /*****************************************************\
@@ -36,6 +37,7 @@ impl MCTSNode {
             total_visits: 0,
             winning_visits: 0,
             score: 0.0,
+            simulated: false,
         }
     }
 }
@@ -85,6 +87,10 @@ impl MCTSNode {
         let parent_visits = parent.total_visits as f64;
         let uct_constant = f64::sqrt(2.0);
 
+        if node_visits == 0.0 {
+            return f64::MAX;
+        }
+
         node_wins / node_visits + uct_constant * f64::sqrt(f64::ln(parent_visits) / node_visits)
     }
 }
@@ -93,7 +99,7 @@ impl MCTSTree {
     fn root(&self) -> &MCTSNode {
         self.arena.get(self.root_index).unwrap()
     }
-    
+
     fn set_child(&mut self, parent_index: Index, child_index: Index) {
         if self.arena.contains(parent_index) && self.arena.contains(child_index) {
             let parent = self.arena.get_mut(parent_index).unwrap();
@@ -111,7 +117,7 @@ impl MCTSTree {
         let mut best_node = self.root();
         let mut best_index = self.root_index;
         let mut best_score = 0.0;
-        while best_node.children.len() > 0 {
+        while best_node.children.len() > 0 && !best_node.simulated {
             let mut best_child_index = best_index;
             for child_idx in &best_node.children {
                 if self.arena.contains(*child_idx) {
