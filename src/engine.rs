@@ -52,8 +52,8 @@ impl PartialEq for MCTSNode {
 
 impl MCTSTree {
     // Creates a new MCTSTree and
-    fn new(initial_state: Board, player_to_generate: Color) -> MCTSTree {
-        let root = MCTSNode::new(initial_state, player_to_generate);
+    fn new(initial_state: &Board, player_to_generate: Color) -> MCTSTree {
+        let root = MCTSNode::new(initial_state.deepcopy(), player_to_generate);
         let mut arena: Arena<MCTSNode> = Arena::new();
         let root_index = arena.insert(root);
         MCTSTree { root_index, arena }
@@ -139,59 +139,79 @@ impl MCTSTree {
     }
 
     fn expansion(&mut self, node_index: Index) {
-        if self.arena.contains(node_index) {
-            let (child_player, candidate_moves, current_state) = {
-                let node = self.arena.get(node_index).unwrap();
-                if node.is_game_over() {
-                    return; // maybe should panic?
-                }
-                let child_player = node.played_last_move.opposite_color();
-                let candidate_moves = node.generate_candidate_moves();
-                let current_state = node.state.deepcopy();
-                (child_player, candidate_moves, current_state)
-            };
+        if !self.arena.contains(node_index) {
+            panic!("Node index does not exist in the MCTS Tree");
+        }
 
-            for candidate in candidate_moves {
-                let mut child_state = current_state.deepcopy();
-                if child_state.play(Move::MOVE(candidate, child_player)) {
-                    let child_idx = self.node(child_state, child_player);
-                    self.set_child(node_index, child_idx);
-                }
+        let (child_player, candidate_moves, current_state) = {
+            let node = self.arena.get_mut(node_index).unwrap();
+            node.simulated = false;
+            if node.is_game_over() {
+                return; // maybe should panic?
+            }
+            let child_player = node.played_last_move.opposite_color();
+            let candidate_moves = node.generate_candidate_moves();
+            let current_state = node.state.deepcopy();
+            (child_player, candidate_moves, current_state)
+        };
+
+        for candidate in candidate_moves {
+            let mut child_state = current_state.deepcopy();
+            if child_state.play(Move::MOVE(candidate, child_player)) {
+                let child_idx = self.node(child_state, child_player);
+                self.set_child(node_index, child_idx);
             }
         }
     }
 
-    fn simulation(&mut self, node_index: Index) -> f64 {
+    fn simulation(&mut self, node_index: Index) -> (Index, f64) {
         // todo: placeholder logic, replace with tromp-taylor scoring, forfeit cutoffs to reduce moves played, etc.
-        if self.arena.contains(node_index) {
-            let end_state = {
-                let mut cur_index = node_index;
-                for _ in 0..1500 {
-                    let cur_node = self.arena.get(node_index).unwrap();
-                    let mut cur_state = cur_node.state.deepcopy();
-                    let player = cur_node.played_last_move.opposite_color();
-                    let mov = cur_node.generate_playout_move(player);
-                    
-                    if mov == Move::PASS {
-                        continue; // kind of want to end playout after two passes but whatever
-                    } else {
-                        if cur_state.play(mov) {
-                            let next_node_index = self.node(cur_state, player);
-                            self.set_child(cur_index, next_node_index);
-                            cur_index = next_node_index;
-                        }
+        if !self.arena.contains(node_index) {
+            panic!("Node index does not exist in the MCTS Tree");
+        }
+
+        self.arena.get_mut(node_index).unwrap().simulated = true;
+        let (end_index, end_state) = {
+            let mut cur_index = node_index;
+            for _ in 0..1500 {
+                let cur_node = self.arena.get(node_index).unwrap();
+                let mut cur_state = cur_node.state.deepcopy();
+                let player = cur_node.played_last_move.opposite_color();
+                let mov = cur_node.generate_playout_move(player);
+
+                if mov == Move::PASS {
+                    continue; // kind of want to end playout after two passes but whatever
+                } else {
+                    if cur_state.play(mov) {
+                        let next_node_index = self.node(cur_state, player);
+                        self.set_child(cur_index, next_node_index);
+                        cur_index = next_node_index;
                     }
                 }
-                &self.arena.get(cur_index).unwrap().state
-            };
-            
-            return end_state.estimate_score()
-        }
-        panic!("Node index does not exist in the MCTS Tree");
+            }
+            (cur_index, &self.arena.get(cur_index).unwrap().state)
+        };
+
+        (end_index, end_state.estimate_score())
     }
-    
-    fn backpropagation(&mut self, node_index: Index) {
-        todo!()
+
+    fn backpropagation(&mut self, leaf_index: Index, score: f64) {
+        if !self.arena.contains(leaf_index) {
+            panic!("Node index does not exist in the MCTS Tree");
+        }
+
+        let mut node_index = Some(leaf_index);
+        while node_index.is_some() {
+            let cur_node = self.arena.get_mut(node_index.unwrap()).unwrap();
+            if score > 0.0 && cur_node.played_last_move == Color::BLACK {
+                cur_node.winning_visits += 1;
+            } else if score < 0.0 && cur_node.played_last_move == Color::WHITE {
+                cur_node.winning_visits += 1;
+            }
+            cur_node.total_visits += 1;
+
+            node_index = cur_node.parent;
+        }
     }
 }
 
@@ -200,80 +220,152 @@ impl MCTSTree {
 \*********************************************************/
 
 impl MCTSNode {
-    // Selects the next node in the Monte Carlo Tree to search
-    fn selection(&self) -> &MCTSNode {
-        let mut best_node = self;
-        let mut best_score = 0.0;
-        for child in &self.children {
-            let child_score = child.uct_score(self);
-            if child_score > best_score {
-                best_node = child;
-                best_score = child_score;
+    // generates a move to simulate playouts with
+    // todo: currently temporary random logic. implement influence maps, move and board scoring, shape moves, etc.
+    fn generate_playout_move(&self, color: Color) -> Move {
+        use rand::Rng;
+        if self.state.size == BoardSize::NINETEEN {
+            if let Some(intsc) = self.generate_opening_move() {
+                return Move::MOVE(intsc, color);
             }
         }
-        
-        best_node
+
+        let weakest_engine_group = self.state.weakest_group(&color);
+        let weakest_opponent_group = self.state.weakest_group(&color.opposite_color());
+
+        // attempt to capture group if possible
+        if weakest_opponent_group.len() == 1
+            && self.state.can_place_stone_at(&weakest_opponent_group[0])
+        {
+            return Move::MOVE(weakest_opponent_group[0], color);
+        }
+
+        // attempt to save threatened group
+        if weakest_engine_group.len() == 1
+            && self.state.can_place_stone_at(&weakest_engine_group[0])
+        {
+            return Move::MOVE(weakest_engine_group[0], color);
+        }
+
+        // surround opponent group
+        if weakest_opponent_group.len() > 0
+            && weakest_opponent_group.len() <= weakest_engine_group.len()
+        {
+            let rand_idx = rand::thread_rng().gen_range(0..weakest_opponent_group.len());
+            return Move::MOVE(weakest_opponent_group[rand_idx], color);
+        } else if weakest_engine_group.len() > 0
+            && weakest_engine_group.len() <= weakest_opponent_group.len()
+        {
+            // extend own group
+            let rand_idx = rand::thread_rng().gen_range(0..weakest_engine_group.len());
+            return Move::MOVE(weakest_engine_group[rand_idx], color);
+        }
+
+        // random tenuki
+        for offset in 2..0 {
+            let random_intsc = self.state.random_intersection(offset);
+            if self.state.can_place_stone_at(&random_intsc)
+                && self.state.diamond(&random_intsc) == None
+            {
+                return Move::MOVE(random_intsc, color);
+            }
+        }
+
+        Move::PASS
     }
 
-    // Expands this Monte Carlo Tree Node by adding nodes to its children field
-    // where a potential move has been played
-    fn expansion(&self) {
-        todo!();
+    // Generates a move meant to be played in the opening of the game
+    // todo: temp moves, and probably shouldn't be chosen randomly
+    fn generate_opening_move(&self) -> Option<Intersection> {
+        use ColumnIdentifier::*;
+        use rand::Rng;
+        let fuseki: Vec<Intersection> = vec![
+            Intersection::new(D, 4),
+            Intersection::new(Q, 4),
+            Intersection::new(Q, 16),
+            Intersection::new(F, 17),
+            Intersection::new(C, 14),
+            Intersection::new(F, 3),
+            Intersection::new(C, 6),
+            Intersection::new(R, 6),
+            Intersection::new(O, 3),
+            Intersection::new(R, 14),
+            Intersection::new(O, 17),
+            Intersection::new(C, 10),
+            Intersection::new(R, 10),
+            Intersection::new(K, 17),
+            Intersection::new(K, 3),
+            Intersection::new(E, 10),
+            Intersection::new(P, 10),
+            Intersection::new(K, 15),
+            Intersection::new(K, 5),
+            Intersection::new(K, 10),
+        ];
+        let rand_idx = rand::thread_rng().gen_range(0..fuseki.len());
+        if self.state.can_place_stone_at(&fuseki[rand_idx]) {
+            Some(fuseki[rand_idx])
+        } else {
+            None
+        }
     }
 
-    // Simulates the result of a game played on the board this node represents
-    fn simulation(&self) {
-        todo!();
+    // Generates candidate moves for the engine to consider playing
+    // todo: terrible logic
+    fn generate_candidate_moves(&self) -> Vec<Intersection> {
+        use ColumnIdentifier::*;
+        let mut moves = vec![
+            Intersection::new(D, 16),
+            Intersection::new(D, 4),
+            Intersection::new(Q, 4),
+            Intersection::new(Q, 16),
+        ];
+
+        for intsc in self.state.weakest_group(&Color::BLACK) {
+            moves.push(intsc);
+        }
+
+        for intsc in self.state.weakest_group(&Color::WHITE) {
+            moves.push(intsc);
+        }
+
+        moves.push(self.state.random_intersection(2));
+
+        moves
     }
 
-    // Traverses up the tree from this node and updates wins accordingly
-    fn backpropagation(&self) {
-        todo!();
+    // Checks if the game is over by seeing if there are any candidate moves to play
+    // todo: terrible logic
+    fn is_game_over(&self) -> bool {
+        self.generate_candidate_moves().len() == 0
     }
 }
 
-// Generates a move using this Go Engine (MCTS) to play on the given Board
-pub(crate) fn generate_move(position: Board, iterations: u16) -> Move {
-    let root = MCTSNode {
-        parent: None,
-        state: position,
-        children: vec![],
-        total_visits: 0,
-        winning_visits: 0,
-        score: 0.0,
-    };
-
-    for _ in 0..iterations {
-        // todo: implement below methods and use them appropriately
-        let node = root.selection();
-        node.expansion();
-        node.simulation();
-        node.backpropagation();
-    }
-
-    if root.children.len() == 0 {
-        Move::PASS
 /********************************************************\
 |****************     PUBLIC METHODS     ****************|
 \********************************************************/
 
 // Generates a move using this Go Engine (MCTS) to play on the given Board
-pub(crate) fn generate_move(position: Board, color: Color, iterations: u16) -> Move {
+pub(crate) fn generate_move(position: &Board, color: Color, iterations: u16) -> Move {
     let mut tree = MCTSTree::new(position, color);
 
-    for _ in 0..iterations {
+    for iter in 0..iterations {
         // todo: implement below methods and use them appropriately
         let node_index = tree.selection();
         tree.expansion(node_index);
-        tree.simulation(node_index);
-        tree.backpropagation(node_index);
+        let (leaf_index, score) = tree.simulation(node_index);
+        tree.backpropagation(leaf_index, score);
     }
 
     // todo: maybe should add helper?
-    if tree.root().children.len() == 0 {
-        Move::PASS
-    } else {
-        // todo: find child of max ending value and return its last move
-        todo!()
+    let mut best_move = Move::PASS;
+    let mut best_visits: u16 = 0;
+    for child_idx in &tree.root().children {
+        let child = tree.arena.get(*child_idx).unwrap();
+        if child.total_visits > best_visits {
+            best_visits = child.total_visits;
+            best_move = child.state.last_move;
+        }
     }
+
+    best_move
 }
