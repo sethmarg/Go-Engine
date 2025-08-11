@@ -236,7 +236,7 @@ impl GTP {
         self.board = Board::new(self.board.size);
         GtpResponse::SUCCESS(String::new())
     }
-    
+
     // args[0] = new decimal komi value 
     // Sets the komi of the current game to the given value
     // Returns an empty response unless an error occurs
@@ -244,16 +244,16 @@ impl GTP {
         if args.len() < 1 {
             return GtpResponse::ERROR("Komi value argument not given to command".to_string());
         }
-        
+
         let komi_value = args[0].parse::<f64>();
         if komi_value.is_err() {
             return GtpResponse::ERROR(format!("Invalid komi argument given: {}", args[0]));
         }
-        
+
         self.board.komi = komi_value.unwrap();
         GtpResponse::SUCCESS(String::new())
     }
-    
+
     // args[0] = Color ("B", "W"), args[1] = intersection to play at in Go Notation (ex. "Q16")
     // Attempts to play a stone for the given color at the given intersection
     // If successful, returns an empty successful response
@@ -262,18 +262,18 @@ impl GTP {
         if args.len() < 2 {
             return GtpResponse::ERROR("Not enough arguments given to play command".to_string());
         }
-        
+
         let color = Color::from_string(args[0]);
         let intersection = Intersection::from_string(args[1]);
-        
+
         if color.is_none() || intersection.is_none() {
             return GtpResponse::ERROR("syntax error".to_string()); // GTP required error message
         }
-        
+
         if !self.board.play(Move::MOVE(intersection.unwrap(), color.unwrap())) {
             return GtpResponse::ERROR("invalid move".to_string()); // GTP required error message
         }
-        
+
         GtpResponse::SUCCESS(String::new())
     }
 
@@ -282,8 +282,24 @@ impl GTP {
     // Attempts to generate an engine move for the given color in the current Board position
     // Outputs the intersection to play at in Go Notation, "pass" if the engine wishes to pass,
     // or "resign" if the engine is resigning
-    fn genmove(&self, args: &[&str]) -> GtpResponse {
-        GtpResponse::DEBUG("".to_string(), "to be implemented".to_string())
+    fn genmove(&mut self, args: &[&str]) -> GtpResponse {
+        if args.len() < 1 {
+            return GtpResponse::ERROR("Not enough arguments given to genmvove command".to_string());
+        }
+        
+        let mov = match args[0] {
+            "B" => generate_move(&self.board, Color::BLACK, 30),
+            "W" => generate_move(&self.board, Color::WHITE, 30),
+            _ => return GtpResponse::ERROR("Invalid color given to genmove".to_string()),
+        };
+        
+        match mov {
+            Move::MOVE(intsc, _) => {
+                self.board.play(mov);
+                GtpResponse::SUCCESS(intsc.to_string())
+            },
+            Move::PASS => GtpResponse::SUCCESS("pass".to_string()),
+        }
     }
 
     // Returns a successful GtpResponse containing a rendering of the current Board position
