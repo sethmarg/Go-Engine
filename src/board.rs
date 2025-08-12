@@ -2,6 +2,9 @@ use std::collections::HashSet;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use rand::Rng;
+use num_traits::{Unsigned, Signed, NumCast, Bounded};
+use std::ops::{Add, Sub};
+
 /****************************************************\
 |****************    GLOBAL TYPES    ****************|
 \****************************************************/
@@ -49,6 +52,7 @@ pub(crate) struct Board {
     pub(crate) black_captures: u16,
 }
 
+// Identifiers of columns on the Go Board, used primarily for position notation
 #[derive(PartialEq, Debug, Eq, Hash, Clone, Copy)]
 pub(crate) enum ColumnIdentifier {
     A,
@@ -72,6 +76,7 @@ pub(crate) enum ColumnIdentifier {
     T,
 }
 
+// A structure that represents playable intersections on the Go Board
 #[derive(PartialEq, Debug, Eq, Hash, Clone, Copy)]
 pub(crate) struct Intersection {
     column: ColumnIdentifier,
@@ -164,17 +169,23 @@ impl Intersection {
 // Adds the given i16 value to the base usize value.
 // If an underflow or overflow occurs, returns None.
 // Else, returns Some(sum as usize)
-pub(crate) fn add_to_usize(base: usize, to_add: i16) -> Option<usize> {
-    if to_add > 0 {
-        if (usize::MAX - to_add as usize) < base {
+pub(crate) fn add_signed_to_unsigned<U, S>(base: U, to_add: S) -> Option<U>
+where
+    U: Unsigned + Copy + Add<Output = U> + Sub<Output = U> + Bounded + NumCast + std::cmp::PartialOrd,
+    S: Signed + Copy + NumCast + std::cmp::PartialOrd,
+{
+    if to_add >= S::zero() {
+        let add_u: U = NumCast::from(to_add)?;
+        if U::max_value() - add_u < base {
             return None;
         }
-        Some(base + to_add as usize)
+        Some(base + add_u)
     } else {
-        if to_add.abs() as usize > base {
+        let sub_u: U = NumCast::from(to_add.abs())?;
+        if sub_u > base {
             return None;
         }
-        Some(base - to_add.abs() as usize)
+        Some(base - sub_u)
     }
 }
 
@@ -545,7 +556,7 @@ impl Board {
             let numeric_size = self.size.to_u16() as i16;
 
             for dir in [1, -1, numeric_size + 2, -numeric_size - 2] {
-                let surrounding_position_index = add_to_usize(position_index as usize, dir);
+                let surrounding_position_index = add_signed_to_unsigned(position_index as usize, dir);
                 if surrounding_position_index.is_some() {
                     match self.position[surrounding_position_index.unwrap()] {
                         State::EMPTY => return None,
@@ -599,7 +610,7 @@ impl Board {
             // capture logic
             let numeric_size = self.size.to_u16() as i16;
             for dir in [1, -1, numeric_size + 2, -numeric_size - 2] {
-                if let Some(surrounding_intsc_index) = add_to_usize(position_index, dir) {
+                if let Some(surrounding_intsc_index) = add_signed_to_unsigned(position_index, dir) {
                     let (group, liberties) =
                         self.count(surrounding_intsc_index, color.opposite_color());
                     if liberties.len() == 0 {
@@ -743,7 +754,7 @@ impl Board {
             let mut liberties = 0;
             let numeric_size = self.size.to_u16() as i16;
             for dir in [1, -1, numeric_size, -numeric_size] {
-                let neighbor = add_to_usize(position_index as usize, dir);
+                let neighbor = add_signed_to_unsigned(position_index as usize, dir);
                 if neighbor.is_some() && self.position[neighbor.unwrap()] == State::EMPTY {
                     liberties += 1;
                 }

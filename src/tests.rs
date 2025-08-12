@@ -24,10 +24,15 @@ fn test_board_deepcopy() {
 
 #[test]
 fn test_add_usize() {
-    assert_eq!(add_to_usize(10, 5), Some(15)); // ensure adding works
-    assert_eq!(add_to_usize(7, -5), Some(2)); // ensure subtraction works
-    assert_eq!(add_to_usize(2, -3), None); // ensure underflow returns None
-    assert_eq!(add_to_usize(usize::MAX, 1), None); // ensures overflow returns None
+    // usize tests
+    assert_eq!(add_signed_to_unsigned(10usize, 5), Some(15)); // ensure adding works
+    assert_eq!(add_signed_to_unsigned(7usize, -5), Some(2)); // ensure subtraction works
+    assert_eq!(add_signed_to_unsigned(2usize, -3), None); // ensure underflow returns None
+    assert_eq!(add_signed_to_unsigned(usize::MAX, 1), None); // ensures overflow returns None
+    
+    // tests of random types working together
+    assert_eq!(add_signed_to_unsigned(2u8, 4i64), Some(6));
+    assert_eq!(add_signed_to_unsigned(732146u128, -12047i64), Some(720099));
 }
 
 #[test]
