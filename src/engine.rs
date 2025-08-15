@@ -1,6 +1,12 @@
 use super::*;
 use thunderdome::*;
 /******************************************************\
+|****************      CONSTANTS       ****************|
+\******************************************************/
+
+const RESIGNATION_THRESHOLD: f64 = 60.0;
+
+/******************************************************\
 |****************    PRIVATE TYPES     ****************|
 \******************************************************/
 
@@ -338,6 +344,21 @@ impl MCTSNode {
     fn is_game_over(&self) -> bool {
         self.generate_candidate_moves().len() == 0
     }
+
+    // should the engine resign in this position
+    fn should_resign(&self, resign_threshold: f64) -> bool {
+        if self.state.move_number > 100 {
+            let to_play = self.played_last_move.opposite_color();
+            let score = self.state.estimate_score();
+
+            match to_play {
+                Color::BLACK => score < -resign_threshold,
+                Color::WHITE => score > resign_threshold,
+            }
+        } else {
+            false
+        }
+    }
 }
 
 /********************************************************\
@@ -347,9 +368,12 @@ impl MCTSNode {
 // Generates a move using this Go Engine (MCTS) to play on the given Board
 pub(crate) fn generate_move(position: &Board, color: Color, iterations: u16) -> Move {
     let mut tree = MCTSTree::new(position, color);
+    if tree.root().should_resign(RESIGNATION_THRESHOLD) {
+        return Move::RESIGN;
+    }
 
     for iter in 0..iterations {
-        // todo: implement below methods and use them appropriately
+        // eprintln!("MCTS Iteration {iter}");
         let node_index = tree.selection();
         tree.expansion(node_index);
         let (leaf_index, score) = tree.simulation(node_index);
@@ -368,4 +392,38 @@ pub(crate) fn generate_move(position: &Board, color: Color, iterations: u16) -> 
     }
 
     best_move
+}
+
+#[test]
+fn test_should_resign() {
+    use ColumnIdentifier::*;
+    let mut b = Board::new(BoardSize::NINE);
+
+    b.play(Move::MOVE(Intersection::new(C, 7), Color::BLACK));
+    b.play(Move::MOVE(Intersection::new(G, 3), Color::WHITE));
+    b.play(Move::MOVE(Intersection::new(D, 7), Color::BLACK));
+    b.play(Move::MOVE(Intersection::new(G, 2), Color::WHITE));
+    b.play(Move::MOVE(Intersection::new(D, 8), Color::BLACK));
+    b.play(Move::MOVE(Intersection::new(G, 1), Color::WHITE));
+    b.play(Move::MOVE(Intersection::new(D, 9), Color::BLACK));
+    b.play(Move::MOVE(Intersection::new(H, 3), Color::WHITE));
+    b.play(Move::MOVE(Intersection::new(C, 6), Color::BLACK));
+    b.play(Move::MOVE(Intersection::new(J, 3), Color::WHITE));
+    b.play(Move::MOVE(Intersection::new(B, 6), Color::BLACK));
+    b.play(Move::MOVE(Intersection::new(J, 4), Color::WHITE));
+    b.play(Move::MOVE(Intersection::new(A, 6), Color::BLACK));
+    b.play(Move::MOVE(Intersection::new(F, 1), Color::WHITE));
+    b.move_number = 101;
+    
+    let mcts_black = MCTSTree::new(&b, Color::BLACK);
+    let mcts_white = MCTSTree::new(&b, Color::WHITE);
+
+    assert_eq!(b.estimate_score(), -2.5); // black = 15, white = 11, komi = 6.5
+    assert_eq!(mcts_black.root().played_last_move, Color::WHITE);
+    assert_eq!(mcts_white.root().played_last_move, Color::BLACK);
+    
+    assert_eq!(mcts_black.root().should_resign(1.0), true); // black should resign at threshold of 1.0
+    assert_eq!(mcts_white.root().should_resign(1.0), false); // white should not resign at threshold of 1.0
+
+    assert_eq!(mcts_black.root().should_resign(5.0), false); // black should not resign at threshold of 5.0
 }

@@ -1,8 +1,7 @@
-use std::collections::HashSet;
+use num_traits::{Bounded, NumCast, Signed, Unsigned};
+use std::collections::{HashSet, VecDeque};
 use std::fmt;
 use std::fmt::{Debug, Formatter};
-use rand::Rng;
-use num_traits::{Unsigned, Signed, NumCast, Bounded};
 use std::ops::{Add, Sub};
 
 /****************************************************\
@@ -37,6 +36,7 @@ pub(crate) enum BoardSize {
 pub(crate) enum Move {
     PASS,
     MOVE(Intersection, Color),
+    RESIGN,
 }
 
 // Go Board structure
@@ -50,6 +50,7 @@ pub(crate) struct Board {
     pub(crate) last_move: Move,
     pub(crate) white_captures: u16,
     pub(crate) black_captures: u16,
+    pub(crate) move_number: u16,
 }
 
 // Identifiers of columns on the Go Board, used primarily for position notation
@@ -84,6 +85,53 @@ pub(crate) struct Intersection {
 }
 
 /*****************************************************\
+|****************    PRIVATE TYPES    ****************|
+\*****************************************************/
+
+// Three state Option, where Yes is analogous to Some, No to None, and Unknown for a non-set state
+enum Tristate<T> {
+    Unknown,
+    Yes(T),
+    No,
+}
+
+impl<T> Tristate<T> {
+    // Returns true if there is something known about this value (not Unknown)
+    fn is_known(&self) -> bool {
+        match self {
+            Tristate::Unknown => false,
+            Tristate::Yes(_) => true,
+            Tristate::No => true,
+        }
+    }
+
+    // Returns true if this Tristate is Yes
+    fn is_yes(&self) -> bool {
+        match self {
+            Tristate::Yes(_) => true,
+            _ => false,
+        }
+    }
+
+    // Returns true if this Tristate is No
+    fn is_no(&self) -> bool {
+        match self {
+            Tristate::No => true,
+            _ => false,
+        }
+    }
+
+    // Attempts to retrieve the value stored inside this Tristate.
+    // Panics if impossible
+    fn unwrap(self) -> T {
+        match self {
+            Tristate::Yes(value) => value,
+            _ => panic!("Cannot unwrap Tristate that is not Tristate::Yes"),
+        }
+    }
+}
+
+/*****************************************************\
 |****************        SETUP        ****************|
 \*****************************************************/
 
@@ -100,6 +148,7 @@ impl Board {
             last_move: Move::PASS,
             white_captures: 0,
             black_captures: 0,
+            move_number: 0,
         }
     }
 
@@ -136,6 +185,7 @@ impl Board {
             last_move: self.last_move.clone(),
             white_captures: self.white_captures,
             black_captures: self.black_captures,
+            move_number: self.move_number,
         }
     }
 }
@@ -171,7 +221,13 @@ impl Intersection {
 // Else, returns Some(sum as usize)
 pub(crate) fn add_signed_to_unsigned<U, S>(base: U, to_add: S) -> Option<U>
 where
-    U: Unsigned + Copy + Add<Output = U> + Sub<Output = U> + Bounded + NumCast + std::cmp::PartialOrd,
+    U: Unsigned
+        + Copy
+        + Add<Output = U>
+        + Sub<Output = U>
+        + Bounded
+        + NumCast
+        + std::cmp::PartialOrd,
     S: Signed + Copy + NumCast + std::cmp::PartialOrd,
 {
     if to_add >= S::zero() {
@@ -556,7 +612,8 @@ impl Board {
             let numeric_size = self.size.to_u16() as i16;
 
             for dir in [1, -1, numeric_size + 2, -numeric_size - 2] {
-                let surrounding_position_index = add_signed_to_unsigned(position_index as usize, dir);
+                let surrounding_position_index =
+                    add_signed_to_unsigned(position_index as usize, dir);
                 if surrounding_position_index.is_some() {
                     match self.position[surrounding_position_index.unwrap()] {
                         State::EMPTY => return None,
@@ -581,10 +638,17 @@ impl Board {
     // accordingly and returns true. Else returns false.
     pub(crate) fn play(&mut self, mov: Move) -> bool {
         use Move::*;
-        match mov {
+        let was_move_played = match mov {
             PASS => true,
             MOVE(intersection, color) => self.play_intersection(intersection, color),
+            RESIGN => false,
+        };
+        
+        if was_move_played {
+            self.move_number += 1;
         }
+        
+        was_move_played
     }
 
     // Attempts to play a stone of the given Color and the given Intersection on this Board.

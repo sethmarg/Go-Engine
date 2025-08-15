@@ -29,7 +29,7 @@ fn test_add_usize() {
     assert_eq!(add_signed_to_unsigned(7usize, -5), Some(2)); // ensure subtraction works
     assert_eq!(add_signed_to_unsigned(2usize, -3), None); // ensure underflow returns None
     assert_eq!(add_signed_to_unsigned(usize::MAX, 1), None); // ensures overflow returns None
-    
+
     // tests of random types working together
     assert_eq!(add_signed_to_unsigned(2u8, 4i64), Some(6));
     assert_eq!(add_signed_to_unsigned(732146u128, -12047i64), Some(720099));
@@ -424,10 +424,12 @@ fn test_play() {
     use ColumnIdentifier::*;
     let mut board = Board::new(BoardSize::NINETEEN);
     assert_eq!(board.play(Move::PASS), true);
+    assert_eq!(board.move_number, 1);
     assert_eq!(
         board.play(Move::MOVE(Intersection::new(E, 4), Color::BLACK)),
         true
     );
+    assert_eq!(board.move_number, 2);
     // detailed play move testing done in test_play_intersection() for convenience
 }
 
