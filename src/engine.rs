@@ -59,7 +59,7 @@ impl PartialEq for MCTSNode {
 impl MCTSTree {
     // Creates a new MCTSTree and
     fn new(initial_state: &Board, player_to_generate: Color) -> MCTSTree {
-        let root = MCTSNode::new(initial_state.deepcopy(), player_to_generate);
+        let root = MCTSNode::new(initial_state.deepcopy(), player_to_generate.opposite_color());
         let mut arena: Arena<MCTSNode> = Arena::new();
         let root_index = arena.insert(root);
         MCTSTree { root_index, arena }
