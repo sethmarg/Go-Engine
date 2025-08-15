@@ -721,44 +721,87 @@ impl Board {
 impl Board {
     // Estimates the score at the end of the Go game on this Board
     pub(crate) fn estimate_score(&self) -> f64 {
-        // todo: implement tromp-taylor scoring
-        let mut stones: Vec<i16> = vec!(0, 0);
+        let mut intsc_seen: HashSet<Intersection> = HashSet::new();
+        let mut reaches_black: i16 = 0;
+        let mut reaches_white: i16 = 0;
 
         for row in 0..self.size.to_u16() {
             for col in 0..self.size.to_u16() {
                 let intsc = Intersection::new(ColumnIdentifier::from_u16(col).unwrap(), row + 1);
-                let intsc_index = intsc.to_position_index(&self.size).unwrap() as usize;
-
-                let color = {
-                    if self.position[intsc_index] == State::EMPTY {
-                        let diamond = self.diamond(&intsc);
-                        if diamond.is_some() {
-                            diamond.unwrap()
-                        } else {
-                            let random_num = rand::thread_rng().gen_range(0..2);
-                            if random_num == 0 {
-                                Color::WHITE
-                            } else {
-                                Color::BLACK
-                            }
-                        }
-                    } else {
-                        if let State::OCCUPIED(color) = self.position[intsc_index] {
-                            color
-                        } else {
-                            panic!("How is offboard in the main board");
+                if !intsc_seen.contains(&intsc) {
+                    let (intersections, reaches_color) = self.tromp_taylor_count(intsc);
+                    if reaches_color.is_yes() {
+                        match reaches_color.unwrap() {
+                            Color::BLACK => reaches_black += intersections.len() as i16,
+                            Color::WHITE => reaches_white += intersections.len() as i16,
                         }
                     }
-                };
-
-                match color {
-                    Color::WHITE => stones[0] += 1,
-                    Color::BLACK => stones[1] += 1,
+                    intsc_seen.extend(intersections);
                 }
             }
         }
 
-        (stones[1] - stones[0]) as f64 - self.komi
+        (reaches_black - reaches_white) as f64 - self.komi
+    }
+
+    fn tromp_taylor_count(
+        &self,
+        root_intsc: Intersection,
+    ) -> (HashSet<Intersection>, Tristate<Color>) {
+        use Tristate::*;
+        let mut intsc_seen: HashSet<Intersection> = HashSet::new();
+        let mut reaches_color: Tristate<Color> = Unknown;
+        let mut work_list: VecDeque<Intersection> = VecDeque::new();
+        work_list.push_back(root_intsc);
+
+        while !work_list.is_empty() {
+            let intsc = work_list.pop_front().unwrap(); // work_list is not empty, safe
+            if !intsc_seen.contains(&intsc) {
+                let intsc_index = intsc.to_position_index(&self.size).unwrap(); // later logic ensures safety
+                let intsc_state = self.position[intsc_index as usize];
+
+                match intsc_state {
+                    State::OFFBOARD => {}
+                    State::OCCUPIED(color) => {
+                        reaches_color = match reaches_color {
+                            Unknown => Yes(color),
+                            Yes(reached_color) => {
+                                if color == reached_color {
+                                    Yes(color)
+                                } else {
+                                    No
+                                }
+                            }
+                            No => No,
+                        }
+                    }
+                    State::EMPTY => {
+                        work_list.extend(self.neighboring_intersections(&intsc));
+                    }
+                }
+
+                intsc_seen.insert(intsc);
+            }
+        }
+
+        (intsc_seen, reaches_color)
+    }
+
+    fn neighboring_intersections(&self, intsc: &Intersection) -> Vec<Intersection> {
+        let mut neighbors: Vec<Intersection> = vec![];
+        if let Some(index) = intsc.to_position_index(&self.size) {
+            let numeric_size = self.size.to_u16() as i16;
+            for dir in [1, -1, numeric_size + 2, -numeric_size - 2] {
+                if let Some(neighbor) = Intersection::from_position_index(
+                    add_signed_to_unsigned(index, dir).unwrap(),
+                    &self.size,
+                ) {
+                    neighbors.push(neighbor);
+                }
+            }
+        }
+
+        neighbors
     }
 }
 

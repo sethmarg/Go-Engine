@@ -493,3 +493,26 @@ fn test_play_intersection() {
     board.play(Move::MOVE(Intersection::new(A, 1), Color::BLACK));
     assert!(board.play(Move::MOVE(Intersection::new(F, 5), Color::BLACK))); // ko no longer exists after some other move
 }
+
+#[test]
+fn test_scoring() {
+    use ColumnIdentifier::*;
+    let mut b = Board::new(BoardSize::NINE);
+
+    b.play(Move::MOVE(Intersection::new(C, 7), Color::BLACK));
+    b.play(Move::MOVE(Intersection::new(G, 3), Color::WHITE));
+    b.play(Move::MOVE(Intersection::new(D, 7), Color::BLACK));
+    b.play(Move::MOVE(Intersection::new(G, 2), Color::WHITE));
+    b.play(Move::MOVE(Intersection::new(D, 8), Color::BLACK));
+    b.play(Move::MOVE(Intersection::new(G, 1), Color::WHITE));
+    b.play(Move::MOVE(Intersection::new(D, 9), Color::BLACK));
+    b.play(Move::MOVE(Intersection::new(H, 3), Color::WHITE));
+    b.play(Move::MOVE(Intersection::new(C, 6), Color::BLACK));
+    b.play(Move::MOVE(Intersection::new(J, 3), Color::WHITE));
+    b.play(Move::MOVE(Intersection::new(B, 6), Color::BLACK));
+    b.play(Move::MOVE(Intersection::new(J, 4), Color::WHITE));
+    b.play(Move::MOVE(Intersection::new(A, 6), Color::BLACK));
+    b.play(Move::MOVE(Intersection::new(F, 1), Color::WHITE));
+
+    assert_eq!(b.estimate_score(), -2.5); // black = 15, white = 11, komi = 6.5
+}

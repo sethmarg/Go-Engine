@@ -179,8 +179,12 @@ impl MCTSTree {
         self.arena.get_mut(node_index).unwrap().simulated = true;
         let (end_index, end_state) = {
             let mut cur_index = node_index;
-            for _ in 0..1500 {
+            for iter in 0..1500 {
                 let cur_node = self.arena.get(node_index).unwrap();
+                if cur_node.should_resign(RESIGNATION_THRESHOLD) {
+                    break;
+                }
+
                 let mut cur_state = cur_node.state.deepcopy();
                 let player = cur_node.played_last_move.opposite_color();
                 let mov = cur_node.generate_playout_move(player);

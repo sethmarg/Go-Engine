@@ -40,6 +40,7 @@ enum GtpCommands {
     PLAY,
     GENMOVE,
     SHOWBOARD,
+    SCORE,
 }
 
 /****************************************************\
@@ -66,6 +67,7 @@ impl fmt::Display for GtpCommands {
                 PLAY => "play",
                 GENMOVE => "genmove",
                 SHOWBOARD => "showboard",
+                SCORE => "score",
             }
         )
     }
@@ -89,6 +91,7 @@ impl GtpCommands {
             "play" => Some(PLAY),
             "genmove" => Some(GENMOVE),
             "showboard" => Some(SHOWBOARD),
+            "score" => Some(SCORE),
             _ => None,
         }
     }
@@ -107,7 +110,7 @@ impl GtpResponse {
             GtpResponse::DEBUG(protocol_message, debug_message) => {
                 eprint!("{}", Self::format_gtp_string(debug_message));
                 print!("= {}", Self::format_gtp_string(protocol_message));
-            },
+            }
         }
     }
 
@@ -164,8 +167,11 @@ impl GTP {
                 PLAY => self.play(&args[1..]),
                 GENMOVE => self.genmove(&args[1..]),
                 SHOWBOARD => self.showboard(),
+                SCORE => self.score(),
             };
             response.write_to_gtp();
+        } else {
+            GtpResponse::ERROR("Unsupported command".to_string()).write_to_gtp();
         }
 
         true
@@ -237,7 +243,7 @@ impl GTP {
         GtpResponse::SUCCESS(String::new())
     }
 
-    // args[0] = new decimal komi value 
+    // args[0] = new decimal komi value
     // Sets the komi of the current game to the given value
     // Returns an empty response unless an error occurs
     fn komi(&mut self, args: &[&str]) -> GtpResponse {
@@ -270,7 +276,10 @@ impl GTP {
             return GtpResponse::ERROR("syntax error".to_string()); // GTP required error message
         }
 
-        if !self.board.play(Move::MOVE(intersection.unwrap(), color.unwrap())) {
+        if !self
+            .board
+            .play(Move::MOVE(intersection.unwrap(), color.unwrap()))
+        {
             return GtpResponse::ERROR("invalid move".to_string()); // GTP required error message
         }
 
@@ -284,26 +293,33 @@ impl GTP {
     // or "resign" if the engine is resigning
     fn genmove(&mut self, args: &[&str]) -> GtpResponse {
         if args.len() < 1 {
-            return GtpResponse::ERROR("Not enough arguments given to genmvove command".to_string());
+            return GtpResponse::ERROR(
+                "Not enough arguments given to genmove command".to_string(),
+            );
         }
-        
+
         let mov = match args[0] {
             "B" => generate_move(&self.board, Color::BLACK, 30),
             "W" => generate_move(&self.board, Color::WHITE, 30),
             _ => return GtpResponse::ERROR("Invalid color given to genmove".to_string()),
         };
-        
+
         match mov {
             Move::MOVE(intsc, _) => {
                 self.board.play(mov);
                 GtpResponse::SUCCESS(intsc.to_string())
-            },
+            }
             Move::PASS => GtpResponse::SUCCESS("pass".to_string()),
+            Move::RESIGN => GtpResponse::SUCCESS("resign".to_string()),
         }
     }
 
     // Returns a successful GtpResponse containing a rendering of the current Board position
     fn showboard(&self) -> GtpResponse {
         GtpResponse::SUCCESS(self.board.to_string())
+    }
+
+    fn score(&self) -> GtpResponse {
+        GtpResponse::SUCCESS(self.board.estimate_score().to_string())
     }
 }
