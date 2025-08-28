@@ -1,11 +1,10 @@
 [package]
 name = "Go_Engine"
 version = "0.1.0"
+authors = ["sethmarg"]
+description = "Interface for a Go Agent and Engine that conforms to GTP"
+repository = "https://github.com/sethmarg/Go-Engine"
 edition = "2024"
 
 [dependencies]
-strum = "0.27.2"
-strum_macros = "0.27.2"
-rand = "0.8"
-thunderdome = "0.6.1"
-num-traits = "0.2.19"
+engine = { path = "engine" }
