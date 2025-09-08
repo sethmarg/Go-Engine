@@ -9,7 +9,7 @@ use strum_macros::EnumIter;
 \****************************************************/
 
 // Go Text Protocol instance
-pub(crate) struct GTP {
+pub struct GTP {
     board: Board,
 }
 
@@ -108,7 +108,7 @@ impl GtpResponse {
             GtpResponse::SUCCESS(result) => print!("= {}", Self::format_gtp_string(result)),
             GtpResponse::ERROR(result) => print!("? {}", Self::format_gtp_string(result)),
             GtpResponse::DEBUG(protocol_message, debug_message) => {
-                eprint!("{}", Self::format_gtp_string(debug_message));
+                eprint!("d {}", Self::format_gtp_string(debug_message));
                 print!("= {}", Self::format_gtp_string(protocol_message));
             }
         }
@@ -125,6 +125,44 @@ impl GtpResponse {
 }
 
 impl GTP {
+    // Starts a Go Text Protocol listener for the Go Engine
+    pub(crate) fn start_listener(mut self) -> io::Result<()> {
+        use std::io;
+        let mut buffer = String::new();
+        loop {
+            buffer.clear();
+            io::stdin().read_line(&mut buffer)?;
+            let arguments: Vec<&str> = buffer.trim().split(" ").collect();
+            let command = self.gtp_commands(&arguments);
+            if arguments.len() > 0 && command.is_none() {
+                break;
+            }
+            command.unwrap().write_to_gtp();
+        }
+
+        Ok(())
+    }
+
+    // Accepts individual command strings and returns the engine response from the command as a String
+    pub(crate) fn accept_command(&mut self, command: String) -> String {
+        let arguments: Vec<&str> = command.trim().split(" ").collect();
+        let response = self.gtp_commands(&arguments);
+        match response {
+            Some(GtpResponse::SUCCESS(result)) => format!("= {result}"),//, format_gtp_string(result)),
+            Some(GtpResponse::ERROR(result)) => format!("? {result}"),//, Self::format_gtp_string(result)),
+            Some(GtpResponse::DEBUG(protocol_message, debug_message)) => {
+                format!("d {debug_message}\n\n= {protocol_message}")
+                // format!("d {}", Self::format_gtp_string(debug_message));
+                // format!("= {}", Self::format_gtp_string(protocol_message));
+            },
+            None => String::from("quit"),
+        }
+    }
+}
+
+
+
+impl GTP {
     // Creates a new instance of the Go Text Protocol
     pub(crate) fn new() -> GTP {
         GTP {
@@ -132,49 +170,30 @@ impl GTP {
         }
     }
 
-    // Starts a Go Text Protocol listener for the Go Engine
-    pub(crate) fn start(mut self) -> io::Result<()> {
-        use std::io;
-        let mut buffer = String::new();
-        loop {
-            buffer.clear();
-            io::stdin().read_line(&mut buffer)?;
-            let arguments: Vec<&str> = buffer.trim().split(" ").collect();
-            if arguments.len() > 0 && !self.gtp_commands(&arguments) {
-                break;
-            }
-        }
-
-        Ok(())
-    }
-
     // Handles input arguments given from the Go Text Protocol
     // and sends them to their respective command function
     // Returns true if the Protocol should remain open, else false.
-    fn gtp_commands(&mut self, args: &[&str]) -> bool {
+    fn gtp_commands(&mut self, args: &[&str]) -> Option<GtpResponse> {
         use GtpCommands::*;
         if let Some(command) = GtpCommands::from_string(args[0]) {
-            let response: GtpResponse = match command {
-                PROTOCOL_VERSION => self.protocol_version(),
-                NAME => self.name(),
-                VERSION => self.version(),
-                KNOWN_COMMAND => self.known_command(&args[1..]),
-                LIST_COMMANDS => self.list_commands(),
-                QUIT => return false,
-                BOARDSIZE => self.boardsize(&args[1..]),
-                CLEAR_BOARD => self.clear_board(),
-                KOMI => self.komi(&args[1..]),
-                PLAY => self.play(&args[1..]),
-                GENMOVE => self.genmove(&args[1..]),
-                SHOWBOARD => self.showboard(),
-                SCORE => self.score(),
-            };
-            response.write_to_gtp();
+            match command {
+                PROTOCOL_VERSION => Some(self.protocol_version()),
+                NAME => Some(self.name()),
+                VERSION => Some(self.version()),
+                KNOWN_COMMAND => Some(self.known_command(&args[1..])),
+                LIST_COMMANDS => Some(self.list_commands()),
+                QUIT => None,
+                BOARDSIZE => Some(self.boardsize(&args[1..])),
+                CLEAR_BOARD => Some(self.clear_board()),
+                KOMI => Some(self.komi(&args[1..])),
+                PLAY => Some(self.play(&args[1..])),
+                GENMOVE => Some(self.genmove(&args[1..])),
+                SHOWBOARD => Some(self.showboard()),
+                SCORE => Some(self.score()),
+            }
         } else {
-            GtpResponse::ERROR("Unsupported command".to_string()).write_to_gtp();
+            Some(GtpResponse::ERROR("Unsupported command".to_string()))
         }
-
-        true
     }
 
     // Returns the Go Text Protocol version this program conforms to
@@ -319,6 +338,7 @@ impl GTP {
         GtpResponse::SUCCESS(self.board.to_string())
     }
 
+    // Returns a successful GtpResponse containing the score of the current Board position
     fn score(&self) -> GtpResponse {
         GtpResponse::SUCCESS(self.board.estimate_score().to_string())
     }

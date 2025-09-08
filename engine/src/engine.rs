@@ -64,9 +64,7 @@ impl MCTSTree {
         let root_index = arena.insert(root);
         MCTSTree { root_index, arena }
     }
-}
 
-impl MCTSTree {
     // Creates a new node in this MCTSTree from the given parameters and returns its Index.
     // If a node of these parameters already exists, returns its Index
     fn node(&mut self, state: Board, played_last_move: Color) -> Index {
@@ -102,10 +100,12 @@ impl MCTSNode {
 }
 
 impl MCTSTree {
+    // Returns the root node of this MCTSTree
     fn root(&self) -> &MCTSNode {
         self.arena.get(self.root_index).unwrap()
     }
 
+    // Adds the node represented at the given child_index as a child of the node at the given parent_index
     fn set_child(&mut self, parent_index: Index, child_index: Index) {
         if self.arena.contains(parent_index) && self.arena.contains(child_index) {
             let parent = self.arena.get_mut(parent_index).unwrap();
@@ -119,6 +119,8 @@ impl MCTSTree {
 \*******************************************************/
 
 impl MCTSTree {
+    // Selection phase of Monte Carlo Tree Search
+    // Selects the "most interesting" node to explore further
     fn selection(&self) -> Index {
         let mut best_node = self.root();
         let mut best_index = self.root_index;
@@ -144,6 +146,8 @@ impl MCTSTree {
         best_index
     }
 
+    // Expansion phase of Monte Carlo Tree Search
+    // Expands the node at the given index, creating new child nodes in the tree where candidate nodes have been played
     fn expansion(&mut self, node_index: Index) {
         if !self.arena.contains(node_index) {
             panic!("Node index does not exist in the MCTS Tree");
@@ -170,6 +174,9 @@ impl MCTSTree {
         }
     }
 
+    // Simulation phase of Monte Carlo Tree Search
+    // Simulates a full game of Go for the given node, creating child nodes along the way for each move played
+    // Returns the final node of the simulation and the score of the end board state
     fn simulation(&mut self, node_index: Index) -> (Index, f64) {
         // todo: placeholder logic, replace with tromp-taylor scoring, forfeit cutoffs to reduce moves played, etc.
         if !self.arena.contains(node_index) {
@@ -179,7 +186,7 @@ impl MCTSTree {
         self.arena.get_mut(node_index).unwrap().simulated = true;
         let (end_index, end_state) = {
             let mut cur_index = node_index;
-            for iter in 0..1500 {
+            for _ in 0..1500 {
                 let cur_node = self.arena.get(node_index).unwrap();
                 if cur_node.should_resign(RESIGNATION_THRESHOLD) {
                     break;
@@ -205,6 +212,8 @@ impl MCTSTree {
         (end_index, end_state.estimate_score())
     }
 
+    // Backpropagation phase of Monte Carlo Tree Search
+    // Traverses up the tree from the given leaf node, incrementing visit counts dependent on the given score
     fn backpropagation(&mut self, leaf_index: Index, score: f64) {
         if !self.arena.contains(leaf_index) {
             panic!("Node index does not exist in the MCTS Tree");
@@ -376,7 +385,7 @@ pub(crate) fn generate_move(position: &Board, color: Color, iterations: u16) -> 
         return Move::RESIGN;
     }
 
-    for iter in 0..iterations {
+    for _ in 0..iterations {
         // eprintln!("MCTS Iteration {iter}");
         let node_index = tree.selection();
         tree.expansion(node_index);

@@ -205,6 +205,7 @@ impl Debug for Board {
     }
 }
 
+// Represents an intersection on the Go board
 impl Intersection {
     // Creates a new Intersection with the given column and row
     pub(crate) fn new(column: ColumnIdentifier, row: u16) -> Intersection {
@@ -875,6 +876,7 @@ impl Board {
         }
     }
 
+    // Is it possible to place a stone at the given Intersection on this Board?
     pub(crate) fn can_place_stone_at(&self, intsc: &Intersection) -> bool {
         if let Some(position_index) = intsc.to_position_index(&self.size) {
             self.position[position_index as usize] == State::EMPTY && self.not_suicide(intsc)
