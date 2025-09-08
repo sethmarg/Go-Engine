@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["sethmarg"]
 description = "Interface for a Go Agent and Engine that conforms to GTP"
 repository = "https://github.com/sethmarg/Go-Engine"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
 engine = { path = "engine" }
