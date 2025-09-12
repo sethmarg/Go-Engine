@@ -130,6 +130,7 @@ dependencies = [
  "axum",
  "num-traits",
  "rand",
+ "serde",
  "strum",
  "strum_macros",
  "thunderdome",

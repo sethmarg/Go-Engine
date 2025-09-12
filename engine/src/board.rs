@@ -512,7 +512,7 @@ impl fmt::Display for Board {
             self.black_captures, self.white_captures
         );
 
-        write!(f, "{render}\n")
+        write!(f, "\n{render}\n")
     }
 }
 
