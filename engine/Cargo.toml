@@ -1,0 +1,17 @@
+[package]
+name = "engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+strum = "0.27.2"
+strum_macros = "0.27.2"
+rand = "0.8"
+thunderdome = "0.6.1"
+num-traits = "0.2.19"
+tokio = { version = "1.47.1", features = ["full"] }
+axum = "0.8.4"
+serde = { version = "1.0.219", features = ["derive"] }
+
+[lib]
+crate-type = ["cdylib", "rlib"]
