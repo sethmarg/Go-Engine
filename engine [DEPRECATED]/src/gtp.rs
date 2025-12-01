@@ -143,7 +143,7 @@ impl GTP {
         Ok(())
     }
 
-    // Accepts individual command strings and returns the engine response from the command as a String
+    // Accepts individual command strings and returns the engine [DEPRECATED] response from the command as a String
     pub(crate) fn accept_command(&mut self, command: String) -> String {
         let arguments: Vec<&str> = command.trim().split(" ").collect();
         let response = self.gtp_commands(&arguments);
@@ -212,7 +212,7 @@ impl GTP {
     }
 
     // args[0] = command name to check
-    // Checks if the given command name is a command this engine supports
+    // Checks if the given command name is a command this engine [DEPRECATED] supports
     // Gives a GtpResponse containing true if the command is known, false otherwise
     fn known_command(&self, args: &[&str]) -> GtpResponse {
         if args.len() < 1 {
@@ -307,9 +307,9 @@ impl GTP {
 
     // TODO: IMPLEMENT
     // args[0] = Color ("B", "W")
-    // Attempts to generate an engine move for the given color in the current Board position
-    // Outputs the intersection to play at in Go Notation, "pass" if the engine wishes to pass,
-    // or "resign" if the engine is resigning
+    // Attempts to generate an engine [DEPRECATED] move for the given color in the current Board position
+    // Outputs the intersection to play at in Go Notation, "pass" if the engine [DEPRECATED] wishes to pass,
+    // or "resign" if the engine [DEPRECATED] is resigning
     fn genmove(&mut self, args: &[&str]) -> GtpResponse {
         if args.len() < 1 {
             return GtpResponse::ERROR(

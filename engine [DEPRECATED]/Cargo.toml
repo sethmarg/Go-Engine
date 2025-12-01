@@ -12,6 +12,8 @@ num-traits = "0.2.19"
 tokio = { version = "1.47.1", features = ["full"] }
 axum = "0.8.4"
 serde = { version = "1.0.219", features = ["derive"] }
+tokio-util = { version = "0.7.16", features = ["compat"] }
+tiberius = "0.12.3"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
