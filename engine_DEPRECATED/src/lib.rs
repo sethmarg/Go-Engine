@@ -1,3 +1,5 @@
+#![doc(hidden)]
+
 mod board;
 mod gtp;
 mod tests;

@@ -328,7 +328,7 @@ impl MCTSNode {
         }
     }
 
-    // Generates candidate moves for the engine [DEPRECATED] to consider playing
+    // Generates candidate moves for the DEPRECATED_engine to consider playing
     // todo: terrible logic
     fn generate_candidate_moves(&self) -> Vec<Intersection> {
         use ColumnIdentifier::*;
@@ -358,7 +358,7 @@ impl MCTSNode {
         self.generate_candidate_moves().len() == 0
     }
 
-    // should the engine [DEPRECATED] resign in this position
+    // should the DEPRECATED_engine resign in this position
     fn should_resign(&self, resign_threshold: f64) -> bool {
         if self.state.move_number > 100 {
             let to_play = self.played_last_move.opposite_color();
