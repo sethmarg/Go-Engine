@@ -1,8 +1,12 @@
 //! A custom agent that plays the game of Go.
+//! 
+//! This program follows the Elm Architecture, with [`board`] as the model.
 
 #![warn(missing_docs)]
 
 pub mod board;
+pub mod update;
+pub mod view;
 
 /// Starting point of the program. Command line arguments detail functionality.
 /// 

@@ -17,7 +17,7 @@ enum Color {
 enum State {
     /// An empty intersection
     Empty,
-    /// An intersection occupied by a stone of a given ['Color']
+    /// An intersection occupied by a stone of a given [`Color`]
     Occupied(Color),
     #[doc(hidden)]
     /// A sentinel value that borders the board for ease of computation.

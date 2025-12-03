@@ -1,0 +1,1 @@
+//! Logic that updates the Go board depending on the received command.
