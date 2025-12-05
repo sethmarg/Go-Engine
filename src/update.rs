@@ -13,8 +13,6 @@ pub enum Message {
     PlaceStone(Color, Position),
     /// Passes the current player's turn.
     Pass,
-    /// Indicates the current player wishes to resign.
-    Resign,
     /// Clears the current board state.
     Clear,
     /// Sets the size of the board to [`BoardSize`].
@@ -80,7 +78,6 @@ pub fn update(board: &mut Board, msg: Message) -> Result<Message, String> {
             board.ko = None;
             Ok(Message::None)
         }
-        Message::Resign => todo!(),
         Message::Clear => {
             board.board = init_board(&board.size);
             board.ko = None;
