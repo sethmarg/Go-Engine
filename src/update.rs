@@ -22,31 +22,41 @@ pub enum Message {
 }
 
 /// Updates the given [`Board`] according to the [`Message`] received.
-/// 
-/// Outputs the next requested [`Message`] on a successful operation, or a [`String`] detailing 
+///
+/// Outputs the next requested [`Message`] on a successful operation, or a [`String`] detailing
 /// why the operation failed.
 pub fn update(board: &mut Board, msg: Message) -> Result<Message, String> {
     match msg {
         Message::None => Ok(Message::None),
         Message::Play(color, pos) => {
-            update(board, Message::PlaceStone(color, pos)).and_then(|_| {
-                let index = pos.to_board_index(&board.size).unwrap();
-                if board.ko.is_none_or(|ko| ko != index) {
-                    board.attempt_captures(index, &color);
-                    if groups::find_group(index, &color, &board.board, &board.size)
-                        .liberties
-                        .len()
-                        != 0
-                    {
-                        Ok(Message::None)
+            if board.player_turn == color {
+                update(board, Message::PlaceStone(color, pos)).and_then(|_| {
+                    let index = pos.to_board_index(&board.size).unwrap();
+                    if board.ko.is_none_or(|ko| ko != index) {
+                        board.attempt_captures(index, &color);
+                        if groups::find_group(index, &color, &board.board, &board.size)
+                            .liberties
+                            .len()
+                            != 0
+                        {
+                            board.player_turn = board.player_turn.opposite_color();
+                            board.ko = None;
+                            board.move_number += 1;
+                            Ok(Message::None)
+                        } else {
+                            board.board[index] = State::Empty;
+                            Err("Placing a stone at this intersection is suicidal".to_string())
+                        }
                     } else {
-                        board.board[index] = State::Empty;
-                        Err("Placing a stone at this intersection is suicidal".to_string())
+                        Err(
+                            "Placing a stone at this intersection violates the rule of ko"
+                                .to_string(),
+                        )
                     }
-                } else {
-                    Err("Placing a stone at this intersection violates the rule of ko".to_string())
-                }
-            })
+                })
+            } else {
+                Err("Playing this move violates the turn order".to_string())
+            }
         }
         Message::PlaceStone(color, pos) => {
             if let Some(index) = pos.to_board_index(&board.size) {
@@ -64,7 +74,12 @@ pub fn update(board: &mut Board, msg: Message) -> Result<Message, String> {
                 Err("Intersection is out of bounds for current boardsize".to_string())
             }
         }
-        Message::Pass => todo!(),
+        Message::Pass => {
+            board.player_turn = board.player_turn.opposite_color();
+            board.move_number += 1;
+            board.ko = None;
+            Ok(Message::None)
+        }
         Message::Resign => todo!(),
         Message::Clear => {
             board.board = init_board(&board.size);

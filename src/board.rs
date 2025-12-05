@@ -46,6 +46,8 @@ pub struct Board {
     pub(crate) ko: Option<usize>,
     pub(crate) black_captures: u16,
     pub(crate) white_captures: u16,
+    pub(crate) player_turn: Color,
+    pub(crate) move_number: u16,
 }
 
 impl BoardSize {
@@ -78,6 +80,8 @@ impl Board {
             ko: None,
             black_captures: 0,
             white_captures: 0,
+            player_turn: Color::Black,
+            move_number: 0,
         }
     }
 
