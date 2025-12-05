@@ -7,4 +7,4 @@ repository = "https://github.com/sethmarg/Go-Engine"
 edition = "2021"
 
 [dependencies]
-engine = { path = "engine [DEPRECATED]" }
+engine = { path = "engine_DEPRECATED" }
